@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import Panel from './Panel.jsx'
+import { useApi } from '../hooks/useApi.js'
 import { NEWS } from '../data/mock.js'
+
+const FALLBACK = { source: 'sample', items: NEWS }
 
 const FILTERS = [
   { id: 'all', label: 'All · 전체' },
@@ -10,7 +13,10 @@ const FILTERS = [
 
 export default function NewsPanel() {
   const [filter, setFilter] = useState('all')
-  const visible = NEWS.filter((n) => filter === 'all' || n.lang === filter)
+  const { data } = useApi('/api/news', { fallback: FALLBACK, refreshMs: 5 * 60 * 1000 })
+  const items = data.items ?? NEWS
+  const isSample = data.source !== 'live'
+  const visible = items.filter((n) => filter === 'all' || n.lang === filter)
 
   return (
     <Panel
@@ -31,7 +37,11 @@ export default function NewsPanel() {
           ))}
         </div>
       }
-      footer="Sample headlines — connect a news API (e.g. Naver News, NewsAPI) in src/data/mock.js"
+      footer={
+        isSample
+          ? 'Sample headlines — start the backend for live news (Google News RSS)'
+          : 'Live · Google News RSS (한국어 + English), refreshed every 5 min'
+      }
     >
       <div className="news-list">
         {visible.map((n) => (
@@ -43,7 +53,7 @@ export default function NewsPanel() {
                 <span>{n.source}</span>
                 <span>·</span>
                 <span>{n.time}</span>
-                <span className="cat">{n.category}</span>
+                {n.category && <span className="cat">{n.category}</span>}
               </div>
             </div>
           </article>

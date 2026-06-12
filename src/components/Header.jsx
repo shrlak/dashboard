@@ -1,6 +1,11 @@
 import { useClock } from '../hooks/useClock.js'
 
-export default function Header() {
+const TABS = [
+  { id: 'overview', label: 'Overview', ko: '대시보드' },
+  { id: 'connections', label: 'Connections', ko: '연결 · 연동' },
+]
+
+export default function Header({ tab, onTabChange }) {
   const now = useClock()
   const hour = now.getHours()
   const greeting =
@@ -19,6 +24,17 @@ export default function Header() {
         </h1>
         <div className="subtitle">{greetingKo} · 오늘도 좋은 하루 보내세요</div>
       </div>
+      <nav className="main-tabs" aria-label="Dashboard sections">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            className={`main-tab ${tab === t.id ? 'active' : ''}`}
+            onClick={() => onTabChange(t.id)}
+          >
+            {t.label} <span className="ko">{t.ko}</span>
+          </button>
+        ))}
+      </nav>
       <div className="clock">
         <div className="time">{time}</div>
         <div className="date">
