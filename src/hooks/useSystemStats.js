@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { apiUrl } from '../lib/apiBase.js'
 
 // Prefers real stats from the backend (`GET /api/system`); when no backend
 // is reachable it falls back to the original in-browser simulation so the
@@ -46,7 +47,7 @@ export function useSystemStats() {
     let cancelled = false
     const tick = async () => {
       try {
-        const res = await fetch('/api/system', { headers: { accept: 'application/json' } })
+        const res = await fetch(apiUrl('/api/system'), { headers: { accept: 'application/json' } })
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const d = await res.json()
         if (cancelled) return

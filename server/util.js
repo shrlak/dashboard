@@ -2,6 +2,15 @@
 // built around the shapes in src/data/mock.js, so everything here formats
 // live data into those same shapes.
 
+// Origins (e.g. your GitHub Pages site) allowed to call this backend
+// cross-origin and to be OAuth return destinations.
+export function allowedOrigins() {
+  return (process.env.ALLOWED_ORIGINS || '')
+    .split(',')
+    .map((s) => s.trim().replace(/\/$/, ''))
+    .filter(Boolean)
+}
+
 export function decodeEntities(text) {
   return text
     .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(+n))

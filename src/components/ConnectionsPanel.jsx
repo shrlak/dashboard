@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import Panel from './Panel.jsx'
 import { useApi } from '../hooks/useApi.js'
+import { apiUrl, getApiBase, setApiBase } from '../lib/apiBase.js'
 
 const STATUS = {
   connected: { label: 'Connected', ko: '연결됨', cls: 'ok' },
@@ -37,12 +38,26 @@ const OFFLINE = {
 export default function ConnectionsPanel() {
   const { data, live, refresh } = useApi('/api/integrations', { fallback: OFFLINE, refreshMs: 30000 })
   const [busy, setBusy] = useState(null)
+  const [baseInput, setBaseInput] = useState(getApiBase())
   const offline = !live
+  const backendOrigin = getApiBase() || window.location.origin
+
+  const saveBase = () => {
+    setApiBase(baseInput)
+    window.location.reload()
+  }
+
+  // After Google sign-in the backend sends the browser back here, even when
+  // this frontend is hosted on a different origin (e.g. GitHub Pages).
+  const connectHref = (item) =>
+    `${apiUrl(item.connectUrl)}&return=${encodeURIComponent(
+      window.location.origin + window.location.pathname
+    )}`
 
   const disconnect = async (account) => {
     setBusy(account)
     try {
-      await fetch('/api/auth/google/disconnect', {
+      await fetch(apiUrl('/api/auth/google/disconnect'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ account }),
@@ -74,11 +89,35 @@ export default function ConnectionsPanel() {
     >
       {offline && (
         <div className="conn-banner">
-          <b>The backend isn’t reachable.</b> Run <code>npm run dev:server</code> next to{' '}
-          <code>npm run dev</code> (or deploy the Docker image) to connect accounts. Panels fall
-          back to sample data meanwhile.
+          <b>The backend isn’t reachable at {backendOrigin}.</b> Start it with{' '}
+          <code>npm start</code> on the machine it should run on (and set{' '}
+          <code>ALLOWED_ORIGINS</code> in its <code>.env</code> when this page is hosted
+          elsewhere, e.g. GitHub Pages), or point the Backend URL below at a running instance.
+          Panels fall back to sample data meanwhile.
         </div>
       )}
+
+      <div className="conn-backend">
+        <div>
+          <b>Backend URL</b> <span className="ko-dim">백엔드 주소</span>
+          <div className="hint">
+            Where this dashboard fetches live data. Use <code>http://localhost:8787</code> when
+            the backend runs on your own computer; leave empty when the backend serves this app
+            itself.
+          </div>
+        </div>
+        <div className="row">
+          <input
+            value={baseInput}
+            onChange={(e) => setBaseInput(e.target.value)}
+            placeholder="http://localhost:8787"
+            spellCheck={false}
+          />
+          <button className="conn-btn primary" onClick={saveBase}>
+            Save &amp; reload
+          </button>
+        </div>
+      </div>
 
       {CATEGORIES.map(([category, categoryKo]) => {
         const items = data.items.filter((i) => i.category === category)
@@ -106,7 +145,7 @@ export default function ConnectionsPanel() {
                         {status.label} · {status.ko}
                       </span>
                       {item.status === 'ready' && item.connectUrl && (
-                        <a className="conn-btn primary" href={item.connectUrl}>
+                        <a className="conn-btn primary" href={connectHref(item)}>
                           Connect
                         </a>
                       )}
@@ -141,8 +180,8 @@ export default function ConnectionsPanel() {
               Calendar APIs.
             </li>
             <li>
-              Add <code>{window.location.origin}/api/auth/google/callback</code> as an authorized
-              redirect URI.
+              Add <code>{backendOrigin}/api/auth/google/callback</code> as an authorized redirect
+              URI.
             </li>
             <li>
               Put <code>GOOGLE_CLIENT_ID</code> and <code>GOOGLE_CLIENT_SECRET</code> in{' '}

@@ -50,8 +50,14 @@ Copy `.env.example` to `.env` for the full list of settings. OAuth tokens are st
 
 ## Deploying from GitHub
 
-- **GitHub Pages (frontend only)** — on every push to `main`, `.github/workflows/deploy-pages.yml` builds the frontend and pushes `dist/` to the `gh-pages` branch. One-time setup: repo **Settings → Pages → Source: Deploy from a branch → `gh-pages` / (root)**. Pages is static hosting, so panels show sample data there (the FX rate is still live — it's fetched by the browser).
-- **Full stack (backend + frontend)** — the included `Dockerfile` builds one image that serves everything on port 8787. Hosts like Render, Railway, or Fly.io can deploy it straight from this GitHub repo and redeploy on every push. Set `PUBLIC_URL` to your public URL and mount a volume at `/data` so OAuth tokens survive restarts. Or on your own machine/home server: `npm run build && npm start`.
+GitHub Pages hosts the **frontend**; the **backend** runs wherever you want (Pages can't run servers). The Pages build is preconfigured to look for the backend at `http://localhost:8787` — i.e. on the computer you're viewing the dashboard from — so live Gmail/Calendar/news/system data works with the backend running locally.
+
+1. Push to `main` → the workflow builds and publishes to the `gh-pages` branch. One-time: **Settings → Pages → Source: Deploy from a branch → `gh-pages` / (root)** → site at `https://<user>.github.io/dashboard/`.
+2. On your computer: `npm install && npm run build && npm start` (backend on :8787).
+3. In `.env`, set `ALLOWED_ORIGINS` to your Pages origin (e.g. `https://<user>.github.io`) so the Pages site may fetch data cross-origin, and register `http://localhost:8787/api/auth/google/callback` as the Google OAuth redirect URI.
+4. Open the Pages site — news and system stats are live immediately; connect Gmail/Calendar from the **Connections** tab. (Chrome/Edge/Firefox allow an https page to call `http://localhost`; Safari may block it.)
+
+**Hosted backend instead:** deploy the included `Dockerfile` (Render/Railway/Fly can build straight from this repo and redeploy on every push), set `PUBLIC_URL` and `ALLOWED_ORIGINS` on it, and mount a volume at `/data` so OAuth tokens survive restarts. Then point the frontend at it: set the repository variable `API_BASE` (Settings → Secrets and variables → Actions → Variables) for Pages builds, or paste the URL into the **Backend URL** field on the Connections tab.
 
 > ⚠️ The dashboard has no login of its own. Once real email/calendar accounts are connected, don't expose it to the public internet unprotected — keep it on your LAN/VPN (e.g. Tailscale) or put basic auth in front.
 

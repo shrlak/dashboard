@@ -28,7 +28,13 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # The Pages site needs a backend for live data. By default it looks at
+      # http://localhost:8787 — the backend running on the viewer's own
+      # machine. To use a hosted backend instead, set the repository
+      # variable API_BASE (Settings → Secrets and variables → Actions).
       - run: npm run build
+        env:
+          VITE_API_BASE: ${{ vars.API_BASE || 'http://localhost:8787' }}
       - name: Push dist/ to gh-pages
         run: |
           cd dist

@@ -31,7 +31,7 @@ export function disconnect(account) {
   deleteToken(account)
 }
 
-export function authUrl(account, redirectUri) {
+export function authUrl(redirectUri, state) {
   const params = new URLSearchParams({
     client_id: process.env.GOOGLE_CLIENT_ID,
     redirect_uri: redirectUri,
@@ -39,7 +39,7 @@ export function authUrl(account, redirectUri) {
     scope: SCOPES,
     access_type: 'offline',
     prompt: 'consent', // force a refresh token even on re-connects
-    state: account,
+    state,
   })
   return `https://accounts.google.com/o/oauth2/v2/auth?${params}`
 }

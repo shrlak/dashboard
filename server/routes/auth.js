@@ -6,15 +6,51 @@ import {
   googleConfigured,
   handleCallback,
 } from '../google.js'
+import { allowedOrigins } from '../util.js'
 
 export const authRouter = Router()
 
-// The redirect URI must match what is registered in the Google Cloud
-// Console. Behind a reverse proxy or on a hosting platform, set PUBLIC_URL
+// Behind a reverse proxy or on a hosting platform, set PUBLIC_URL
 // (e.g. https://dashboard.example.com) instead of relying on Host headers.
+function selfOrigin(req) {
+  return new URL(process.env.PUBLIC_URL || `${req.protocol}://${req.get('host')}`).origin
+}
+
+// Must match what is registered in the Google Cloud Console.
 function redirectUri(req) {
-  const base = (process.env.PUBLIC_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '')
-  return `${base}/api/auth/google/callback`
+  return `${selfOrigin(req)}/api/auth/google/callback`
+}
+
+// The frontend may live on another origin (GitHub Pages); it passes where
+// to send the browser after OAuth via ?return=. Only the backend's own
+// origin and ALLOWED_ORIGINS qualify — anything else is dropped.
+function safeReturnTo(raw, req) {
+  if (!raw) return null
+  try {
+    const url = new URL(String(raw))
+    const ok = [selfOrigin(req), ...allowedOrigins()]
+    if (['http:', 'https:'].includes(url.protocol) && ok.includes(url.origin)) return url
+  } catch {
+    // not a valid absolute URL
+  }
+  return null
+}
+
+const encodeState = (obj) => Buffer.from(JSON.stringify(obj)).toString('base64url')
+
+function decodeState(raw) {
+  try {
+    return JSON.parse(Buffer.from(String(raw), 'base64url').toString())
+  } catch {
+    return {}
+  }
+}
+
+function frontendRedirect(returnTo, params) {
+  if (!returnTo) return `/?${new URLSearchParams(params)}`
+  const url = new URL(returnTo)
+  for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value)
+  return url.toString()
 }
 
 authRouter.get('/google', (req, res) => {
@@ -27,20 +63,24 @@ authRouter.get('/google', (req, res) => {
   if (!GOOGLE_ACCOUNTS.includes(account)) {
     return res.status(400).json({ error: `account must be one of: ${GOOGLE_ACCOUNTS.join(', ')}` })
   }
-  res.redirect(authUrl(account, redirectUri(req)))
+  const returnTo = safeReturnTo(req.query.return, req)
+  const state = encodeState({ account, return: returnTo ? returnTo.toString() : null })
+  res.redirect(authUrl(redirectUri(req), state))
 })
 
 authRouter.get('/google/callback', async (req, res) => {
-  const account = String(req.query.state || '')
-  if (req.query.error || !req.query.code || !GOOGLE_ACCOUNTS.includes(account)) {
-    return res.redirect('/?tab=connections&error=oauth')
+  const state = decodeState(req.query.state)
+  const account = GOOGLE_ACCOUNTS.includes(state.account) ? state.account : null
+  const returnTo = safeReturnTo(state.return, req)
+  if (req.query.error || !req.query.code || !account) {
+    return res.redirect(frontendRedirect(returnTo, { tab: 'connections', error: 'oauth' }))
   }
   try {
     await handleCallback(account, String(req.query.code), redirectUri(req))
-    res.redirect(`/?tab=connections&connected=${account}`)
+    res.redirect(frontendRedirect(returnTo, { tab: 'connections', connected: account }))
   } catch (e) {
     console.error('OAuth callback failed:', e.message)
-    res.redirect('/?tab=connections&error=oauth')
+    res.redirect(frontendRedirect(returnTo, { tab: 'connections', error: 'oauth' }))
   }
 })
 
