@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import Panel from './Panel.jsx'
-import { NEWS } from '../data/mock.js'
+import { useNews } from '../hooks/useNews.js'
 
 const FILTERS = [
   { id: 'all', label: 'All · 전체' },
@@ -9,8 +9,9 @@ const FILTERS = [
 ]
 
 export default function NewsPanel() {
+  const { isLive, items } = useNews()
   const [filter, setFilter] = useState('all')
-  const visible = NEWS.filter((n) => filter === 'all' || n.lang === filter)
+  const visible = items.filter((n) => filter === 'all' || n.lang === filter)
 
   return (
     <Panel
@@ -31,14 +32,26 @@ export default function NewsPanel() {
           ))}
         </div>
       }
-      footer="Sample headlines — connect a news API (e.g. Naver News, NewsAPI) in src/data/mock.js"
+      footer={
+        isLive
+          ? 'Live — RSS feeds configured in server/config.json'
+          : 'Sample headlines — run `npm run server` for live RSS news'
+      }
     >
       <div className="news-list">
         {visible.map((n) => (
           <article key={n.id} className="news-item">
             <span className={`lang ${n.lang}`}>{n.lang === 'ko' ? '한' : 'EN'}</span>
             <div>
-              <div className="headline">{n.headline}</div>
+              <div className="headline">
+                {n.url ? (
+                  <a href={n.url} target="_blank" rel="noreferrer">
+                    {n.headline}
+                  </a>
+                ) : (
+                  n.headline
+                )}
+              </div>
               <div className="news-meta">
                 <span>{n.source}</span>
                 <span>·</span>

@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import Panel from './Panel.jsx'
-import { CALENDAR_EVENTS } from '../data/mock.js'
+import { useCalendar } from '../hooks/useCalendar.js'
 
 function monthGrid(today) {
   const year = today.getFullYear()
@@ -27,21 +27,22 @@ function dayLabel(offset, date) {
 }
 
 export default function CalendarPanel() {
+  const { isLive, events } = useCalendar()
   const today = new Date()
   const cells = useMemo(() => monthGrid(today), [today.toDateString()])
 
   const eventsByOffset = useMemo(() => {
     const map = new Map()
-    for (const e of CALENDAR_EVENTS) {
+    for (const e of events) {
       if (!map.has(e.day)) map.set(e.day, [])
       map.get(e.day).push(e)
     }
     return [...map.entries()].sort((a, b) => a[0] - b[0])
-  }, [])
+  }, [events])
 
   const dotsFor = (cellDate) => {
     const offset = Math.round((cellDate - new Date(today.toDateString())) / 86400000)
-    return CALENDAR_EVENTS.filter((e) => e.day === offset).slice(0, 3)
+    return events.filter((e) => e.day === offset).slice(0, 3)
   }
 
   return (
@@ -56,7 +57,11 @@ export default function CalendarPanel() {
           <span className="badge"><span className="dot-sm" style={{ background: 'var(--purple)' }} /> iCloud</span>
         </div>
       }
-      footer="Synced from Google Calendar and iCloud (CalDAV)"
+      footer={
+        isLive
+          ? 'Live — synced from Google Calendar and iCloud'
+          : 'Sample data — run `npm run server` and connect calendars (see README)'
+      }
     >
       <div className="cal-layout">
         <div className="cal-month">

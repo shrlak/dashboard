@@ -519,6 +519,8 @@ button {
 .news-item .lang.en { background: rgba(77, 208, 225, 0.14); color: var(--cyan); }
 
 .news-item .headline { font-size: 13.5px; font-weight: 500; }
+.news-item .headline a { color: inherit; text-decoration: none; }
+.news-item .headline a:hover { text-decoration: underline; }
 .news-item .news-meta {
   font-size: 11px;
   color: var(--text-faint);

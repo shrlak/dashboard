@@ -39,16 +39,26 @@ export default function SystemHealthPanel() {
       span={3}
       actions={
         <span className="badge">
-          <span className="live-dot" /> live
+          <span className="live-dot" /> {s.isLive ? 'live' : 'demo'}
         </span>
       }
-      footer="Simulated in-browser — connect a local stats agent for real data"
+      footer={
+        s.isLive
+          ? 'Live from local backend (systeminformation)'
+          : 'Simulated — run `npm run server` for real stats'
+      }
     >
       <div className="stat-grid">
         <Stat label="CPU" labelKo="프로세서" value={s.cpu.toFixed(0)} unit="%" pct={s.cpu} />
         <Stat label="Memory" labelKo="메모리" value={s.memory.toFixed(0)} unit="%" pct={s.memory} />
         <Stat label="Disk" labelKo="디스크" value={s.disk.toFixed(0)} unit="% used" pct={s.disk} />
-        <Stat label="Battery" labelKo="배터리" value={s.battery.toFixed(0)} unit="%" pct={s.battery} />
+        <Stat
+          label="Battery"
+          labelKo="배터리"
+          value={s.battery == null ? '—' : s.battery.toFixed(0)}
+          unit={s.battery == null ? 'no battery' : '%'}
+          pct={s.battery}
+        />
         <Stat label="Down" labelKo="다운로드" value={s.netDown.toFixed(0)} unit="Mbps" />
         <Stat label="Up" labelKo="업로드" value={s.netUp.toFixed(0)} unit="Mbps" />
       </div>

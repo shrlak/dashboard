@@ -1,23 +1,24 @@
 import { useMemo, useState } from 'react'
 import Panel from './Panel.jsx'
-import { EMAIL_ACCOUNTS, EMAILS } from '../data/mock.js'
+import { useEmails } from '../hooks/useEmails.js'
 
 export default function EmailPanel() {
+  const { isLive, accounts, emails } = useEmails()
   const [active, setActive] = useState('all')
 
   const unreadByAccount = useMemo(() => {
     const counts = { all: 0 }
-    for (const acc of EMAIL_ACCOUNTS) counts[acc.id] = 0
-    for (const m of EMAILS) {
+    for (const acc of accounts) counts[acc.id] = 0
+    for (const m of emails) {
       if (!m.unread) continue
       counts.all += 1
-      counts[m.account] += 1
+      counts[m.account] = (counts[m.account] ?? 0) + 1
     }
     return counts
-  }, [])
+  }, [accounts, emails])
 
-  const visible = EMAILS.filter((m) => active === 'all' || m.account === active)
-  const accountOf = (id) => EMAIL_ACCOUNTS.find((a) => a.id === id)
+  const visible = emails.filter((m) => active === 'all' || m.account === active)
+  const accountOf = (id) => accounts.find((a) => a.id === id)
 
   return (
     <Panel
@@ -30,13 +31,17 @@ export default function EmailPanel() {
           <span className="live-dot" /> {unreadByAccount.all} unread
         </span>
       }
-      footer={`Accounts: ${EMAIL_ACCOUNTS.map((a) => a.address).join(' · ')}`}
+      footer={
+        isLive
+          ? `Live · ${accounts.map((a) => a.address).join(' · ')}`
+          : 'Sample data — run `npm run server` and connect accounts (see README)'
+      }
     >
       <div className="tabs" style={{ marginBottom: 12 }}>
         <button className={`tab ${active === 'all' ? 'active' : ''}`} onClick={() => setActive('all')}>
           All {unreadByAccount.all > 0 && <span className="count">{unreadByAccount.all}</span>}
         </button>
-        {EMAIL_ACCOUNTS.map((acc) => (
+        {accounts.map((acc) => (
           <button
             key={acc.id}
             className={`tab ${active === acc.id ? 'active' : ''}`}

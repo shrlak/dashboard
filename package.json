@@ -6,11 +6,19 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "server": "node server/index.js",
+    "start": "npm run build && node server/index.js"
   },
   "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^4.22.2",
+    "imapflow": "^1.4.0",
+    "node-ical": "^0.26.1",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "rss-parser": "^3.13.0",
+    "systeminformation": "^5.31.7"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",
