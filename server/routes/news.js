@@ -1,64 +1,88 @@
 import { Router } from 'express'
-import Parser from 'rss-parser'
-import { cached } from '../lib/cache.js'
+import { NEWS } from '../../src/data/mock.js'
+import { decodeEntities, relativeTime } from '../util.js'
 
-const router = Router()
-const parser = new Parser({ timeout: 8000 })
-const PER_FEED = 4
-const MAX_ITEMS = 16
+export const newsRouter = Router()
 
-function timeAgo(date, lang) {
-  const mins = Math.max(0, Math.round((Date.now() - date) / 60000))
-  if (lang === 'ko') {
-    if (mins < 1) return '방금 전'
-    if (mins < 60) return `${mins}분 전`
-    if (mins < 24 * 60) return `${Math.round(mins / 60)}시간 전`
-    return `${Math.round(mins / 1440)}일 전`
-  }
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  if (mins < 24 * 60) return `${Math.round(mins / 60)}h ago`
-  return `${Math.round(mins / 1440)}d ago`
+// Google News RSS needs no API key. Override per language with a
+// comma-separated list of RSS URLs in NEWS_FEEDS_KO / NEWS_FEEDS_EN.
+const DEFAULT_FEEDS = {
+  ko: ['https://news.google.com/rss?hl=ko&gl=KR&ceid=KR:ko'],
+  en: ['https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en'],
 }
 
-async function fetchFeed(feed) {
-  const parsed = await parser.parseURL(feed.url)
-  return (parsed.items ?? []).slice(0, PER_FEED).map((item, i) => {
-    const ts = item.isoDate ? new Date(item.isoDate).getTime() : Date.now()
+const PER_FEED = 6
+const CACHE_MS = 5 * 60 * 1000
+let cache = { at: 0, payload: null }
+
+function feedsFor(lang) {
+  const env = process.env[`NEWS_FEEDS_${lang.toUpperCase()}`]
+  if (!env) return DEFAULT_FEEDS[lang]
+  return env.split(',').map((s) => s.trim()).filter(Boolean)
+}
+
+function tagText(block, tag) {
+  const m = block.match(new RegExp(`<${tag}[^>]*>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?</${tag}>`))
+  return m ? decodeEntities(m[1].trim()) : ''
+}
+
+function parseRss(xml, lang) {
+  return [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)].map(([, block]) => {
+    const source = tagText(block, 'source')
+    let headline = tagText(block, 'title')
+    // Google News appends " - Source" to titles; drop it when we already
+    // have the source element.
+    if (source && headline.endsWith(` - ${source}`)) {
+      headline = headline.slice(0, -` - ${source}`.length)
+    }
+    const date = new Date(tagText(block, 'pubDate'))
     return {
-      id: `${feed.source}-${i}-${ts}`,
-      lang: feed.lang,
-      source: feed.source,
-      category: feed.category,
-      headline: (item.title ?? '').trim(),
-      url: item.link ?? '',
-      ts,
-      time: timeAgo(ts, feed.lang),
+      lang,
+      source,
+      headline,
+      link: tagText(block, 'link'),
+      date: Number.isNaN(date.getTime()) ? new Date() : date,
     }
   })
 }
 
-router.get('/', async (req, res) => {
-  const { newsFeeds } = req.app.locals.config
-  if (!newsFeeds.length) return res.json({ configured: false, items: [] })
-
-  try {
-    const items = await cached('news', 5 * 60_000, async () => {
-      const settled = await Promise.allSettled(newsFeeds.map(fetchFeed))
-      for (const s of settled) {
-        if (s.status === 'rejected') console.warn('[news]', s.reason?.message ?? s.reason)
-      }
-      return settled
-        .flatMap((s) => (s.status === 'fulfilled' ? s.value : []))
-        .filter((n) => n.headline)
-        .sort((a, b) => b.ts - a.ts)
-        .slice(0, MAX_ITEMS)
+async function fetchAll() {
+  const jobs = ['ko', 'en'].flatMap((lang) =>
+    feedsFor(lang).map(async (url) => {
+      const res = await fetch(url, { headers: { 'user-agent': 'personal-dashboard' } })
+      if (!res.ok) throw new Error(`RSS ${res.status} for ${url}`)
+      return parseRss(await res.text(), lang).slice(0, PER_FEED)
     })
-    // If every feed failed (e.g. offline) let the frontend fall back to samples.
-    res.json({ configured: items.length > 0, items })
-  } catch (e) {
-    res.status(500).json({ configured: false, error: e.message, items: [] })
-  }
-})
+  )
+  const results = await Promise.allSettled(jobs)
+  const items = results
+    .flatMap((r) => (r.status === 'fulfilled' ? r.value : []))
+    .sort((a, b) => b.date - a.date)
+    .slice(0, 12)
+    .map((n, i) => ({
+      id: i + 1,
+      lang: n.lang,
+      source: n.source || (n.lang === 'ko' ? '뉴스' : 'News'),
+      time: relativeTime(n.date, n.lang),
+      category: null,
+      headline: n.headline,
+      link: n.link || null,
+    }))
+  const errors = results
+    .filter((r) => r.status === 'rejected')
+    .map((r) => String(r.reason?.message ?? r.reason))
+  return { items, errors }
+}
 
-export default router
+newsRouter.get('/', async (req, res) => {
+  if (cache.payload && Date.now() - cache.at < CACHE_MS) {
+    return res.json(cache.payload)
+  }
+  const { items, errors } = await fetchAll()
+  if (errors.length) console.error('News fetch errors:', errors)
+  const payload = items.length
+    ? { source: 'live', items, errors }
+    : { source: 'sample', items: NEWS, errors }
+  if (items.length) cache = { at: Date.now(), payload }
+  res.json(payload)
+})

@@ -1,10 +1,16 @@
 import { useMemo, useState } from 'react'
 import Panel from './Panel.jsx'
-import { useEmails } from '../hooks/useEmails.js'
+import { useApi } from '../hooks/useApi.js'
+import { EMAIL_ACCOUNTS, EMAILS } from '../data/mock.js'
+
+const FALLBACK = { source: 'sample', accounts: EMAIL_ACCOUNTS, emails: EMAILS }
 
 export default function EmailPanel() {
-  const { isLive, accounts, emails } = useEmails()
   const [active, setActive] = useState('all')
+  const { data } = useApi('/api/emails', { fallback: FALLBACK, refreshMs: 2 * 60 * 1000 })
+  const accounts = data.accounts ?? EMAIL_ACCOUNTS
+  const emails = data.emails ?? EMAILS
+  const isSample = data.source !== 'live'
 
   const unreadByAccount = useMemo(() => {
     const counts = { all: 0 }
@@ -32,9 +38,9 @@ export default function EmailPanel() {
         </span>
       }
       footer={
-        isLive
-          ? `Live · ${accounts.map((a) => a.address).join(' · ')}`
-          : 'Sample data — run `npm run server` and connect accounts (see README)'
+        isSample
+          ? 'Sample data — connect your accounts in the Connections tab'
+          : `Live · ${accounts.map((a) => a.address).join(' · ')}`
       }
     >
       <div className="tabs" style={{ marginBottom: 12 }}>

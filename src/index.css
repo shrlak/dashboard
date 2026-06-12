@@ -94,6 +94,38 @@ button {
   font-size: 13px;
 }
 
+/* ---------- Main nav tabs ---------- */
+.main-tabs {
+  display: flex;
+  gap: 8px;
+  align-self: center;
+}
+
+.main-tab {
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dim);
+  border: 1px solid transparent;
+  transition: all 0.15s;
+}
+
+.main-tab:hover { color: var(--text); }
+
+.main-tab.active {
+  color: var(--text);
+  background: var(--panel-raised);
+  border-color: var(--border);
+}
+
+.main-tab .ko {
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-left: 5px;
+}
+
 /* ---------- Grid ---------- */
 .grid {
   display: grid;
@@ -536,6 +568,149 @@ button {
   padding: 0 6px;
   color: var(--text-dim);
 }
+
+/* ---------- Connections ---------- */
+.conn-banner {
+  background: rgba(255, 107, 107, 0.08);
+  border: 1px solid rgba(255, 107, 107, 0.3);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+
+.conn-banner b { color: var(--text); }
+
+.conn-banner code,
+.conn-setup code {
+  background: var(--panel-raised);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 1px 5px;
+  font-size: 11.5px;
+}
+
+.conn-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 16px 0 8px;
+}
+
+.conn-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  gap: 12px;
+}
+
+.conn-card {
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.conn-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.conn-icon {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--accent-soft);
+  display: grid;
+  place-items: center;
+  font-size: 16px;
+}
+
+.conn-name {
+  font-weight: 600;
+  font-size: 13.5px;
+}
+
+.conn-name .ko {
+  display: block;
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.conn-detail {
+  flex: 1;
+  font-size: 12px;
+  color: var(--text-dim);
+  word-break: break-word;
+}
+
+.conn-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.status-pill {
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+
+.status-pill.ok { color: var(--green); background: rgba(62, 207, 142, 0.1); border-color: rgba(62, 207, 142, 0.35); }
+.status-pill.accent { color: var(--accent); background: var(--accent-soft); border-color: rgba(91, 140, 255, 0.4); }
+.status-pill.warn { color: var(--yellow); background: rgba(245, 196, 81, 0.1); border-color: rgba(245, 196, 81, 0.35); }
+.status-pill.info { color: var(--cyan); background: rgba(77, 208, 225, 0.1); border-color: rgba(77, 208, 225, 0.35); }
+.status-pill.err { color: var(--red); background: rgba(255, 107, 107, 0.1); border-color: rgba(255, 107, 107, 0.35); }
+.status-pill.dim { color: var(--text-faint); }
+
+.conn-btn {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 13px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  text-decoration: none;
+  transition: all 0.15s;
+}
+
+.conn-btn:hover { color: var(--text); border-color: var(--accent); }
+.conn-btn:disabled { opacity: 0.5; cursor: default; }
+
+.conn-btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.conn-btn.primary:hover { filter: brightness(1.1); }
+
+.conn-setup {
+  margin-top: 16px;
+  background: var(--bg-soft);
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+
+.conn-setup b { color: var(--text); }
+.conn-setup ol { margin: 8px 0 0 18px; display: flex; flex-direction: column; gap: 4px; }
+.conn-setup a { color: var(--accent); }
 
 /* ---------- Misc ---------- */
 .live-dot {

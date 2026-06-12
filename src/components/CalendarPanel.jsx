@@ -1,6 +1,9 @@
 import { useMemo } from 'react'
 import Panel from './Panel.jsx'
-import { useCalendar } from '../hooks/useCalendar.js'
+import { useApi } from '../hooks/useApi.js'
+import { CALENDAR_EVENTS } from '../data/mock.js'
+
+const FALLBACK = { source: 'sample', events: CALENDAR_EVENTS }
 
 function monthGrid(today) {
   const year = today.getFullYear()
@@ -27,9 +30,11 @@ function dayLabel(offset, date) {
 }
 
 export default function CalendarPanel() {
-  const { isLive, events } = useCalendar()
   const today = new Date()
   const cells = useMemo(() => monthGrid(today), [today.toDateString()])
+  const { data } = useApi('/api/calendar', { fallback: FALLBACK, refreshMs: 5 * 60 * 1000 })
+  const events = data.events ?? CALENDAR_EVENTS
+  const isSample = data.source !== 'live'
 
   const eventsByOffset = useMemo(() => {
     const map = new Map()
@@ -58,9 +63,9 @@ export default function CalendarPanel() {
         </div>
       }
       footer={
-        isLive
-          ? 'Live — synced from Google Calendar and iCloud'
-          : 'Sample data — run `npm run server` and connect calendars (see README)'
+        isSample
+          ? 'Sample events — connect calendars in the Connections tab'
+          : 'Live · Google Calendar + iCloud (ICS), next 14 days'
       }
     >
       <div className="cal-layout">
@@ -85,13 +90,13 @@ export default function CalendarPanel() {
         </div>
 
         <div className="agenda">
-          {eventsByOffset.map(([offset, events]) => {
+          {eventsByOffset.map(([offset, dayEvents]) => {
             const date = new Date(today)
             date.setDate(today.getDate() + offset)
             return (
               <div key={offset}>
                 <div className="day-label">{dayLabel(offset, date)}</div>
-                {events.map((e) => (
+                {dayEvents.map((e) => (
                   <div key={e.id} className="event" style={{ marginTop: 6 }}>
                     <span className="bar" style={{ background: e.color }} />
                     <div>

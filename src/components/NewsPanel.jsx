@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import Panel from './Panel.jsx'
-import { useNews } from '../hooks/useNews.js'
+import { useApi } from '../hooks/useApi.js'
+import { NEWS } from '../data/mock.js'
+
+const FALLBACK = { source: 'sample', items: NEWS }
 
 const FILTERS = [
   { id: 'all', label: 'All · 전체' },
@@ -9,8 +12,10 @@ const FILTERS = [
 ]
 
 export default function NewsPanel() {
-  const { isLive, items } = useNews()
   const [filter, setFilter] = useState('all')
+  const { data } = useApi('/api/news', { fallback: FALLBACK, refreshMs: 5 * 60 * 1000 })
+  const items = data.items ?? NEWS
+  const isSample = data.source !== 'live'
   const visible = items.filter((n) => filter === 'all' || n.lang === filter)
 
   return (
@@ -33,9 +38,9 @@ export default function NewsPanel() {
         </div>
       }
       footer={
-        isLive
-          ? 'Live — RSS feeds configured in server/config.json'
-          : 'Sample headlines — run `npm run server` for live RSS news'
+        isSample
+          ? 'Sample headlines — start the backend for live news (Google News RSS)'
+          : 'Live · Google News RSS (한국어 + English), refreshed every 5 min'
       }
     >
       <div className="news-list">
@@ -44,8 +49,8 @@ export default function NewsPanel() {
             <span className={`lang ${n.lang}`}>{n.lang === 'ko' ? '한' : 'EN'}</span>
             <div>
               <div className="headline">
-                {n.url ? (
-                  <a href={n.url} target="_blank" rel="noreferrer">
+                {n.link ? (
+                  <a href={n.link} target="_blank" rel="noreferrer">
                     {n.headline}
                   </a>
                 ) : (
@@ -56,7 +61,7 @@ export default function NewsPanel() {
                 <span>{n.source}</span>
                 <span>·</span>
                 <span>{n.time}</span>
-                <span className="cat">{n.category}</span>
+                {n.category && <span className="cat">{n.category}</span>}
               </div>
             </div>
           </article>

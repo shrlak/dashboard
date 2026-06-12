@@ -1,130 +1,92 @@
 # Personal Dashboard · 내 대시보드
 
-A personal dashboard that brings together:
+A personal dashboard with a React frontend and a small Node/Express backend:
 
-- **✉️ Inbox** — unified view across multiple email accounts (Gmail via OAuth, iCloud via IMAP) with per-account tabs and unread counts
+- **✉️ Inbox** — unified view across multiple email accounts (personal Gmail, work Gmail, iCloud) with per-account tabs and unread counts
 - **📅 Calendar** — Google Calendar + iCloud events merged into one month view and agenda, color-coded by source
-- **💻 System health** — real CPU, memory, disk, battery, and network throughput from your machine
+- **💻 System health** — CPU, memory, disk, battery, and network throughput with a live CPU sparkline
 - **💱 KRW / USD** — current exchange rate, daily change, quick conversions, and a 30-day chart
-- **📰 News briefing** — live RSS headlines in Korean and English with language filters
+- **📰 News briefing** — headlines in Korean and English with language filters
+- **🔌 Connections** — a dedicated tab to connect/disconnect accounts and see the status of every integration
 
-**Architecture:** a React + Vite frontend (deployable to GitHub Pages) and a small
-Express backend (`server/`) that runs on **your computer**. The backend has to be
-local: it reads your machine's health stats, and it keeps your email tokens and
-passwords off GitHub. Every panel falls back to sample data when the backend is
-offline, so the UI always renders.
+Dark theme, responsive 12-column grid, no UI/chart libraries — React, Vite, Express, and hand-rolled SVG charts. Every panel falls back to sample data when its integration isn't connected, so the app always renders something sensible.
 
-```
-Browser ──> GitHub Pages (static frontend)
-   │
-   └──> http://localhost:8787 (backend on your machine)
-          ├── /api/stats     systeminformation (CPU, RAM, disk, battery, net)
-          ├── /api/emails    Gmail REST (OAuth) + iCloud IMAP
-          ├── /api/calendar  Google Calendar REST + iCloud ICS subscriptions
-          ├── /api/news      RSS (연합뉴스, 매일경제, BBC, Guardian, NYT…)
-          └── /auth/google   OAuth flow, tokens stored in server/.data/
-```
-
-## Quick start
+## Getting started
 
 ```bash
 npm install
-npm run server   # backend on http://localhost:8787
-npm run dev      # frontend on http://localhost:5173 (proxies /api to backend)
+npm run dev:server   # backend on http://localhost:8787
+npm run dev          # frontend on http://localhost:5173 (proxies /api to 8787)
 ```
 
-With just that, **system health and news are already live** (no keys needed).
-Email and calendar need the one-time setup below.
-
-`npm start` builds the frontend and serves everything from the backend as a
-single process at http://localhost:8787.
-
-## Connecting your accounts
-
-Copy the config template first:
+Production build (backend serves the built frontend):
 
 ```bash
-cp server/config.example.json server/config.json   # gitignored
+npm run build
+npm start            # http://localhost:8787
 ```
 
-### Gmail + Google Calendar (per Google account)
+## Connecting real data
 
-1. In [Google Cloud Console](https://console.cloud.google.com/) create a project,
-   enable the **Gmail API** and **Google Calendar API**.
-2. Create an **OAuth client ID** (type: Web application) with redirect URI
-   `http://localhost:8787/auth/google/callback`, and put the client ID/secret
-   into `server/config.json` under `google`.
-3. List each account under `googleAccounts` (the two sample entries show the shape).
-4. Start the backend and visit `http://localhost:8787/auth/google/gmail-personal`
-   (and `/auth/google/gmail-work`, …) to authorize each account. Tokens are
-   saved to `server/.data/` (gitignored) and refreshed automatically.
+Open the **Connections** tab in the dashboard — it shows the status of every integration and walks you through setup. In short:
 
-### iCloud Mail
+| Integration | How |
+|---|---|
+| Gmail (personal + work) | Create a Google OAuth client, set `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` in `.env`, then click **Connect** on each account card |
+| Google Calendar | Comes with the Gmail sign-in (same Google token, calendar scope included) |
+| iCloud Calendar | Make calendars public in iCloud and list the share links in `ICLOUD_ICS_URLS` |
+| iCloud Mail | Not wired up yet (needs an IMAP bridge with an app-specific password) |
+| News | Built-in — Google News RSS (ko + en), no key; override via `NEWS_FEEDS_KO`/`NEWS_FEEDS_EN` |
+| KRW/USD | Built-in — [frankfurter.app](https://www.frankfurter.app/), fetched by the browser, no key |
+| System health | Built-in — real stats from the machine running the backend |
 
-1. At [appleid.apple.com](https://appleid.apple.com) → Sign-In and Security →
-   App-Specific Passwords, generate one.
-2. Fill in `icloud.address` and `icloud.appPassword` in `server/config.json`.
+Copy `.env.example` to `.env` for the full list of settings. OAuth tokens are stored only on the backend (`server/.data/`, gitignored) and never reach the browser.
 
-### iCloud Calendar
+### Google OAuth client (one-time)
 
-In the Calendar app (or iCloud.com), share each calendar you want
-(**public link** is simplest) and paste the `webcal://…` URLs into
-`icloudCalendarUrls` in `server/config.json`.
+1. In [Google Cloud Console](https://console.cloud.google.com/apis/credentials) create an **OAuth client ID** (type: *Web application*) and enable the **Gmail API** and **Google Calendar API**.
+2. Add the authorized redirect URI: `<your-origin>/api/auth/google/callback` (e.g. `http://localhost:5173/api/auth/google/callback` for dev, plus your production URL).
+3. Put the client ID/secret in `.env` and restart the backend.
 
-### News feeds
+## Deploying from GitHub
 
-Live out of the box. Edit `newsFeeds` in `server/config.json` to change
-sources — any RSS feed works; each entry sets its language (`ko`/`en`),
-display name, and category. Defaults are in `server/lib/config.js`.
+- **GitHub Pages (frontend only)** — `.github/workflows/deploy-pages.yml` builds and publishes `dist/` on every push to `main`. One-time setup: repo **Settings → Pages → Source: GitHub Actions**. Pages is static hosting, so panels show sample data there (the FX rate is still live — it's fetched by the browser).
+- **Full stack (backend + frontend)** — the included `Dockerfile` builds one image that serves everything on port 8787. Hosts like Render, Railway, or Fly.io can deploy it straight from this GitHub repo and redeploy on every push. Set `PUBLIC_URL` to your public URL and mount a volume at `/data` so OAuth tokens survive restarts. Or on your own machine/home server: `npm run build && npm start`.
 
-Secrets can also come from env vars instead of the file: `GOOGLE_CLIENT_ID`,
-`GOOGLE_CLIENT_SECRET`, `ICLOUD_ADDRESS`, `ICLOUD_APP_PASSWORD`.
-
-## Deploying with GitHub
-
-`.github/workflows/deploy.yml` builds the frontend and publishes it to
-**GitHub Pages** on every push.
-
-1. One-time: repo **Settings → Pages → Source → GitHub Actions**.
-2. Push. Your dashboard appears at `https://<user>.github.io/dashboard/`.
-3. Run the backend locally (`npm run server`) — the Pages site calls it at
-   `http://localhost:8787`. Browsers allow this because localhost is a
-   trusted origin; your data never leaves your machine.
-
-GitHub Pages only hosts static files, so the backend itself can't run on
-GitHub — and wouldn't make sense to, since it reports *your computer's*
-health and holds your credentials. If you later host the backend somewhere
-else, set the repository variable `API_BASE` to its URL.
-
-> The backend binds to `127.0.0.1` only. Set `HOST=0.0.0.0` if you want to
-> reach it from another device on your network (consider the privacy
-> implications first).
-
-## What's live vs. sample data
-
-| Panel | Without setup | After setup |
-|---|---|---|
-| System health | Simulated walk | **Live** local stats, polled every 2s |
-| News | Sample headlines | **Live** RSS, refreshed every 5 min |
-| KRW/USD | Live (frankfurter.app, client-side) | same |
-| Email | Sample messages | **Live** Gmail + iCloud, refreshed every 60s |
-| Calendar | Sample events | **Live** Google + iCloud, refreshed every 5 min |
+> ⚠️ The dashboard has no login of its own. Once real email/calendar accounts are connected, don't expose it to the public internet unprotected — keep it on your LAN/VPN (e.g. Tailscale) or put basic auth in front.
 
 ## Project structure
 
 ```
 server/
-  index.js                   # Express app (binds 127.0.0.1:8787)
-  config.example.json        # copy to config.json (gitignored)
-  lib/config.js              # config + defaults + env overrides
-  lib/google.js              # OAuth + token refresh + authed fetch
-  lib/cache.js               # tiny TTL cache
-  routes/{stats,emails,calendar,news,auth}.js
+  index.js                   # Express app — API + serves dist/ in production
+  env.js                     # tiny .env loader (no dotenv dependency)
+  store.js                   # OAuth token store (server/.data/tokens.json)
+  google.js                  # Google OAuth flow + authenticated API fetch
+  ics.js                     # minimal ICS parser for iCloud calendar feeds
+  routes/
+    auth.js                  # /api/auth/google, callback, disconnect
+    emails.js                # /api/emails — Gmail inboxes, unified shape
+    calendar.js              # /api/calendar — Google + ICS, next 14 days
+    news.js                  # /api/news — Google News RSS, 5-min cache
+    system.js                # /api/system — real CPU/mem/disk/net stats
+    integrations.js          # /api/integrations — status for Connections tab
 src/
-  App.jsx                    # layout grid
-  lib/api.js                 # API base + polling hook with mock fallback
-  components/                # one panel per file + shared Panel/Sparkline
-  hooks/                     # useEmails / useCalendar / useNews / useSystemStats / useExchangeRate / useClock
-  data/mock.js               # sample data used as offline fallback
-.github/workflows/deploy.yml # GitHub Pages deployment
+  App.jsx                    # tab switching: Overview / Connections
+  components/
+    Header.jsx               # greeting + nav tabs + live clock (en/ko)
+    EmailPanel.jsx
+    CalendarPanel.jsx
+    SystemHealthPanel.jsx
+    ExchangePanel.jsx
+    NewsPanel.jsx
+    ConnectionsPanel.jsx     # integration cards, connect/disconnect
+    Panel.jsx                # shared card chrome
+    widgets/Sparkline.jsx    # dependency-free SVG line chart
+  hooks/
+    useApi.js                # fetch /api/* with sample-data fallback
+    useClock.js
+    useExchangeRate.js       # frankfurter.app fetch + fallback
+    useSystemStats.js        # /api/system, simulated when backend is off
+  data/mock.js               # sample data + the shapes panels expect
 ```

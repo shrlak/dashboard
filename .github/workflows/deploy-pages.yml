@@ -1,15 +1,13 @@
-# Builds the frontend and deploys it to GitHub Pages on every push.
-# One-time setup: repo Settings → Pages → Source → "GitHub Actions".
+# Deploys the static frontend to GitHub Pages on every push to main.
+# Note: Pages only hosts the frontend — panels show sample data there.
+# For live integrations, deploy the backend (see Dockerfile / README).
 #
-# The Pages site talks to the backend running on YOUR machine
-# (`npm run server`, http://localhost:8787). To point it elsewhere, set a
-# repository variable named API_BASE (Settings → Secrets and variables →
-# Actions → Variables).
+# One-time setup: repo Settings → Pages → Source: "GitHub Actions".
 name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main, claude/quirky-hamilton-crnk9j]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -28,12 +26,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run build -- --base=/${{ github.event.repository.name }}/
-        env:
-          VITE_API_BASE: ${{ vars.API_BASE || 'http://localhost:8787' }}
+      - run: npm run build
+      - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

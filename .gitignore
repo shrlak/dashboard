@@ -4,7 +4,4 @@ dist
 .env.local
 *.log
 .DS_Store
-
-# Backend secrets — never commit these
-server/config.json
 server/.data/

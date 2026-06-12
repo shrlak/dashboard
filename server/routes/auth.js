@@ -1,46 +1,54 @@
 import { Router } from 'express'
-import { authUrl, exchangeCode, isAuthorized } from '../lib/google.js'
+import {
+  GOOGLE_ACCOUNTS,
+  authUrl,
+  disconnect,
+  googleConfigured,
+  handleCallback,
+} from '../google.js'
 
-const router = Router()
+export const authRouter = Router()
 
-router.get('/google/callback', async (req, res) => {
-  const { code, state: accountId, error } = req.query
-  if (error || !code) return res.status(400).send(`Authorization failed: ${error || 'no code'}`)
-  try {
-    await exchangeCode(req.app.locals.config.google, accountId, code)
-    res.send(
-      `<body style="font-family:sans-serif;background:#0b0e14;color:#e6e9f0;display:grid;place-items:center;height:100vh">
-        <div>✅ Google account <b>${accountId}</b> connected. You can close this tab.</div>
-      </body>`,
-    )
-  } catch (e) {
-    res.status(500).send(`Token exchange failed: ${e.message}`)
-  }
-})
+// The redirect URI must match what is registered in the Google Cloud
+// Console. Behind a reverse proxy or on a hosting platform, set PUBLIC_URL
+// (e.g. https://dashboard.example.com) instead of relying on Host headers.
+function redirectUri(req) {
+  const base = (process.env.PUBLIC_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '')
+  return `${base}/api/auth/google/callback`
+}
 
-router.get('/google/:accountId', (req, res) => {
-  const { google, googleAccounts } = req.app.locals.config
-  if (!google.clientId || !google.clientSecret) {
+authRouter.get('/google', (req, res) => {
+  if (!googleConfigured()) {
     return res
       .status(400)
-      .send('Set google.clientId / clientSecret in server/config.json first (see README).')
+      .json({ error: 'Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env first.' })
   }
-  const { accountId } = req.params
-  if (!googleAccounts.some((a) => a.id === accountId)) {
-    return res.status(404).send(`Unknown account "${accountId}" — add it to googleAccounts in server/config.json.`)
+  const account = String(req.query.account || '')
+  if (!GOOGLE_ACCOUNTS.includes(account)) {
+    return res.status(400).json({ error: `account must be one of: ${GOOGLE_ACCOUNTS.join(', ')}` })
   }
-  res.redirect(authUrl(google, accountId))
+  res.redirect(authUrl(account, redirectUri(req)))
 })
 
-router.get('/status', (req, res) => {
-  const { googleAccounts, icloud, icloudCalendarUrls } = req.app.locals.config
-  res.json({
-    google: googleAccounts
-      .filter((a) => a.address)
-      .map((a) => ({ id: a.id, address: a.address, authorized: isAuthorized(a.id) })),
-    icloudMail: !!(icloud.address && icloud.appPassword),
-    icloudCalendar: icloudCalendarUrls.length > 0,
-  })
+authRouter.get('/google/callback', async (req, res) => {
+  const account = String(req.query.state || '')
+  if (req.query.error || !req.query.code || !GOOGLE_ACCOUNTS.includes(account)) {
+    return res.redirect('/?tab=connections&error=oauth')
+  }
+  try {
+    await handleCallback(account, String(req.query.code), redirectUri(req))
+    res.redirect(`/?tab=connections&connected=${account}`)
+  } catch (e) {
+    console.error('OAuth callback failed:', e.message)
+    res.redirect('/?tab=connections&error=oauth')
+  }
 })
 
-export default router
+authRouter.post('/google/disconnect', (req, res) => {
+  const account = String(req.body?.account || '')
+  if (!GOOGLE_ACCOUNTS.includes(account)) {
+    return res.status(400).json({ error: 'unknown account' })
+  }
+  disconnect(account)
+  res.json({ ok: true })
+})
