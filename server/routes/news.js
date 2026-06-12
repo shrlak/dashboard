@@ -36,7 +36,13 @@ function parseRss(xml, lang) {
       headline = headline.slice(0, -` - ${source}`.length)
     }
     const date = new Date(tagText(block, 'pubDate'))
-    return { lang, source, headline, date: Number.isNaN(date.getTime()) ? new Date() : date }
+    return {
+      lang,
+      source,
+      headline,
+      link: tagText(block, 'link'),
+      date: Number.isNaN(date.getTime()) ? new Date() : date,
+    }
   })
 }
 
@@ -60,6 +66,7 @@ async function fetchAll() {
       time: relativeTime(n.date, n.lang),
       category: null,
       headline: n.headline,
+      link: n.link || null,
     }))
   const errors = results
     .filter((r) => r.status === 'rejected')

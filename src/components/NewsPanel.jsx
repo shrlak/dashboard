@@ -48,7 +48,15 @@ export default function NewsPanel() {
           <article key={n.id} className="news-item">
             <span className={`lang ${n.lang}`}>{n.lang === 'ko' ? '한' : 'EN'}</span>
             <div>
-              <div className="headline">{n.headline}</div>
+              <div className="headline">
+                {n.link ? (
+                  <a href={n.link} target="_blank" rel="noreferrer">
+                    {n.headline}
+                  </a>
+                ) : (
+                  n.headline
+                )}
+              </div>
               <div className="news-meta">
                 <span>{n.source}</span>
                 <span>·</span>
