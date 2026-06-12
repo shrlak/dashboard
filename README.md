@@ -50,7 +50,7 @@ Copy `.env.example` to `.env` for the full list of settings. OAuth tokens are st
 
 ## Deploying from GitHub
 
-- **GitHub Pages (frontend only)** — `.github/workflows/deploy-pages.yml` builds and publishes `dist/` on every push to `main`. One-time setup: repo **Settings → Pages → Source: GitHub Actions**. Pages is static hosting, so panels show sample data there (the FX rate is still live — it's fetched by the browser).
+- **GitHub Pages (frontend only)** — on every push to `main`, `.github/workflows/deploy-pages.yml` builds the frontend and pushes `dist/` to the `gh-pages` branch. One-time setup: repo **Settings → Pages → Source: Deploy from a branch → `gh-pages` / (root)**. Pages is static hosting, so panels show sample data there (the FX rate is still live — it's fetched by the browser).
 - **Full stack (backend + frontend)** — the included `Dockerfile` builds one image that serves everything on port 8787. Hosts like Render, Railway, or Fly.io can deploy it straight from this GitHub repo and redeploy on every push. Set `PUBLIC_URL` to your public URL and mount a volume at `/data` so OAuth tokens survive restarts. Or on your own machine/home server: `npm run build && npm start`.
 
 > ⚠️ The dashboard has no login of its own. Once real email/calendar accounts are connected, don't expose it to the public internet unprotected — keep it on your LAN/VPN (e.g. Tailscale) or put basic auth in front.
