@@ -12,6 +12,17 @@ function meterColor(pct) {
 // and come back as null — show a dash instead of a number.
 const fmt = (v) => (v == null ? '—' : v.toFixed(0))
 
+// 184500 s → "2d 3h", 7320 s → "2h 2m", 90 s → "1m"
+function fmtUptime(seconds) {
+  if (seconds == null) return null
+  const d = Math.floor(seconds / 86400)
+  const h = Math.floor((seconds % 86400) / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
+  if (d) return `${d}d ${h}h`
+  if (h) return `${h}h ${m}m`
+  return `${m}m`
+}
+
 function Stat({ label, labelKo, value, unit, pct }) {
   return (
     <div className="stat">
@@ -52,6 +63,20 @@ export default function SystemHealthPanel() {
           : 'Simulated in-browser — start the backend for real stats'
       }
     >
+      <div className="sys-status">
+        <span className="badge">
+          <span
+            className="dot-sm"
+            style={{
+              background:
+                s.online == null ? 'var(--yellow)' : s.online ? 'var(--green)' : 'var(--red)',
+            }}
+          />
+          {s.online == null ? 'Checking…' : s.online ? 'Online' : 'Offline'}
+          {s.latencyMs != null && ` · ${s.latencyMs} ms`}
+        </span>
+        {fmtUptime(s.uptime) && <span className="badge">Uptime {fmtUptime(s.uptime)}</span>}
+      </div>
       <div className="stat-grid">
         <Stat label="CPU" labelKo="프로세서" value={fmt(s.cpu)} unit="%" pct={s.cpu} />
         <Stat label="Memory" labelKo="메모리" value={fmt(s.memory)} unit="%" pct={s.memory} />
