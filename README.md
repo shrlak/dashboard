@@ -33,12 +33,12 @@ Open the **Connections** tab in the dashboard — it shows the status of every i
 | Integration | How |
 |---|---|
 | Gmail (personal + work) | Create a Google OAuth client, set `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` in `.env`, then click **Connect** on each account card |
-| Google Calendar | Comes with the Gmail sign-in (same Google token, calendar scope included) |
+| Google Calendar | Comes with the Gmail sign-in (same token); syncs **all calendars you have visible** in Google Calendar — primary + secondary/shared — color-coded per calendar |
 | iCloud Calendar | Make calendars public in iCloud and list the share links in `ICLOUD_ICS_URLS` |
 | iCloud Mail | Not wired up yet (needs an IMAP bridge with an app-specific password) |
 | News | Built-in — Google News RSS (ko + en), no key; override via `NEWS_FEEDS_KO`/`NEWS_FEEDS_EN` |
-| KRW/USD | Built-in — [frankfurter.app](https://www.frankfurter.app/), fetched by the browser, no key |
-| System health | Built-in — real stats from the machine running the backend |
+| KRW/USD | Built-in — **Naver Finance** via the backend (`/api/exchange`), with [frankfurter.app](https://www.frankfurter.app/) (ECB) as fallback; no key |
+| System health | Built-in — real stats from the machine running the backend, plus internet connectivity + uptime |
 
 Copy `.env.example` to `.env` for the full list of settings. OAuth tokens are stored only on the backend (`server/.data/`, gitignored) and never reach the browser.
 

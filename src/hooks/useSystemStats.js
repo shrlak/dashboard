@@ -13,10 +13,15 @@ const SIM = {
   netUp: 11,
 }
 
+const browserOnline = () => (typeof navigator === 'undefined' ? null : navigator.onLine)
+
 const INITIAL = {
   ...SIM,
   live: false,
   host: null,
+  uptime: null,
+  online: browserOnline(),
+  latencyMs: null,
   history: Array.from({ length: 40 }, (_, i) => 20 + Math.sin(i / 3) * 8),
 }
 
@@ -30,6 +35,9 @@ function simulateStep(s) {
   return {
     live: false,
     host: null,
+    uptime: null,
+    online: browserOnline(),
+    latencyMs: null,
     cpu,
     memory: walk(s.memory ?? SIM.memory, 4, 35, 90),
     disk: s.disk ?? SIM.disk,
@@ -54,6 +62,9 @@ export function useSystemStats() {
         setStats((s) => ({
           live: true,
           host: d.host,
+          uptime: d.uptime ?? null,
+          online: d.online ?? null,
+          latencyMs: d.latencyMs ?? null,
           cpu: d.cpu,
           memory: d.memory,
           disk: d.disk,

@@ -890,3 +890,11 @@ button {
   color: var(--text);
   border-color: var(--accent);
 }
+
+/* ---------- System status strip ---------- */
+.sys-status {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}

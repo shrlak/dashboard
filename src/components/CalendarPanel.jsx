@@ -106,7 +106,7 @@ export default function CalendarPanel() {
                         {e.duration && ` · ${e.duration}`}
                       </div>
                     </div>
-                    <span className="src">{e.source}</span>
+                    <span className="src">{e.calendar || e.source}</span>
                   </div>
                 ))}
               </div>

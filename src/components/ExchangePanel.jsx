@@ -6,7 +6,7 @@ const krw = new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 0 })
 const usd = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 })
 
 export default function ExchangePanel() {
-  const { loading, isLive, rate, series, updatedAt, refresh } = useExchangeRate()
+  const { loading, isLive, source, rate, series, updatedAt, refresh } = useExchangeRate()
 
   const prev = series.length > 1 ? series[series.length - 2].rate : null
   const delta = rate != null && prev != null ? rate - prev : null
@@ -25,7 +25,7 @@ export default function ExchangePanel() {
       }
       footer={
         isLive
-          ? `Live from frankfurter.app (ECB reference) · updated ${updatedAt?.toLocaleTimeString()}`
+          ? `Live from ${source ?? 'the network'} · updated ${updatedAt?.toLocaleTimeString()}`
           : 'Offline — showing sample data. Live rates load automatically when the network allows.'
       }
     >

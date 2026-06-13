@@ -84,6 +84,47 @@ function netSnapshot() {
   }
 }
 
+// Internet reachability, probed in the background and cached so the frequent
+// /api/system poll stays instant. online=null until the first probe resolves.
+let conn = { online: null, latencyMs: null, at: 0 }
+let probing = false
+const PROBE_TARGETS = [
+  'https://www.gstatic.com/generate_204',
+  'https://www.cloudflare.com/cdn-cgi/trace',
+]
+const PROBE_INTERVAL_MS = 15000
+
+async function probeInternet() {
+  for (const url of PROBE_TARGETS) {
+    const started = Date.now()
+    try {
+      const ctrl = new AbortController()
+      const timer = setTimeout(() => ctrl.abort(), 3000)
+      const res = await fetch(url, { signal: ctrl.signal, cache: 'no-store' })
+      clearTimeout(timer)
+      if (res.ok || res.status === 204) return { online: true, latencyMs: Date.now() - started }
+    } catch {
+      // try the next target
+    }
+  }
+  return { online: false, latencyMs: null }
+}
+
+function connectivity() {
+  if (!probing && Date.now() - conn.at > PROBE_INTERVAL_MS) {
+    probing = true
+    probeInternet()
+      .then((r) => {
+        conn = { ...r, at: Date.now() }
+      })
+      .catch(() => {})
+      .finally(() => {
+        probing = false
+      })
+  }
+  return conn
+}
+
 let lastNet = netSnapshot()
 
 function netRates() {
@@ -103,10 +144,14 @@ function netRates() {
 
 systemRouter.get('/', (req, res) => {
   const { down, up } = netRates()
+  const { online, latencyMs } = connectivity()
   res.json({
     source: 'live',
     host: os.hostname(),
     platform: `${os.type()} ${os.release()}`,
+    uptime: os.uptime(),
+    online,
+    latencyMs,
     cpu: cpuUsage(),
     memory: memoryPct(),
     disk: diskPct(),

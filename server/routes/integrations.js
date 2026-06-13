@@ -52,8 +52,8 @@ integrationsRouter.get('/', (req, res) => {
       nameKo: '구글 캘린더',
       status: connected.length ? 'connected' : hasCreds ? 'ready' : 'needs_setup',
       detail: connected.length
-        ? `Syncing the primary calendar of ${connected.map((a) => connectedEmail(a)).filter(Boolean).join(', ')}`
-        : 'Comes with the Gmail sign-in above — connecting either inbox also syncs its calendar.',
+        ? `Syncing all visible calendars of ${connected.map((a) => connectedEmail(a)).filter(Boolean).join(', ')}`
+        : 'Comes with the Gmail sign-in above — connecting either inbox also syncs its calendars.',
     },
     {
       id: 'icloud-calendar',
