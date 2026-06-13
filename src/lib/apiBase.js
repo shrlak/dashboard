@@ -32,3 +32,14 @@ export function setApiBase(url) {
 export function apiUrl(path) {
   return `${getApiBase()}${path}`
 }
+
+// All backend calls go through here so the session cookie is sent — including
+// cross-origin (credentials: 'include'), which the login flow relies on when
+// the frontend (e.g. GitHub Pages) lives on a different origin than the backend.
+export function apiFetch(path, options = {}) {
+  return fetch(apiUrl(path), {
+    credentials: 'include',
+    ...options,
+    headers: { accept: 'application/json', ...(options.headers || {}) },
+  })
+}

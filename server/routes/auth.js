@@ -7,8 +7,37 @@ import {
   handleCallback,
 } from '../google.js'
 import { allowedOrigins } from '../util.js'
+import {
+  authRequired,
+  checkPassword,
+  clearSessionCookie,
+  isAuthed,
+  issueToken,
+  setSessionCookie,
+} from '../session.js'
 
 export const authRouter = Router()
+
+// --- Dashboard login (master password) ---------------------------------
+// The browser/SPA calls these to establish a session cookie; see session.js.
+
+authRouter.get('/session', (req, res) => {
+  res.json({ required: authRequired(), authed: isAuthed(req) })
+})
+
+authRouter.post('/login', (req, res) => {
+  if (!authRequired()) return res.json({ authed: true })
+  if (!checkPassword(req.body?.password)) {
+    return res.status(401).json({ error: 'Incorrect password.' })
+  }
+  setSessionCookie(res, issueToken())
+  res.json({ authed: true })
+})
+
+authRouter.post('/logout', (req, res) => {
+  clearSessionCookie(res)
+  res.json({ ok: true })
+})
 
 // Behind a reverse proxy or on a hosting platform, set PUBLIC_URL
 // (e.g. https://dashboard.example.com) instead of relying on Host headers.

@@ -68,7 +68,7 @@ The Docker image builds the frontend *and* serves it, so one hosted container is
    - `PUBLIC_URL` = the service's own public URL (used to build the OAuth redirect)
    - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` for Gmail + Calendar
    - `ICLOUD_ICS_URLS` (optional) — public iCloud calendar links, comma-separated
-   - `DASHBOARD_PASSWORD` (and optionally `DASHBOARD_USER`, default `admin`) — **set this**, since a public URL is otherwise wide open (see the auth note below)
+   - `DASHBOARD_PASSWORD` — **set this**, since a public URL is otherwise wide open; it turns on the master-password login (see the auth note below)
    - mount a **persistent volume at `/data`** (`DATA_DIR` already points there) so OAuth tokens survive restarts
    - `ALLOWED_ORIGINS` is **not** needed — the container serves its own frontend, so requests are same-origin
 3. **Auto-redeploy on every push (optional):** copy your host's deploy-hook URL and add it as the repo secret `DEPLOY_HOOK_URL` (**Settings → Secrets and variables → Actions → Secrets**). The workflow pings it after each push so the host pulls the new image. Without it, enable the host's own "auto-deploy on new image" toggle instead.
@@ -77,7 +77,7 @@ The Docker image builds the frontend *and* serves it, so one hosted container is
 
 > GHCR stores the image but doesn't run it — a container host is still required (GitHub doesn't host long-running app containers). Everything above is configured in web dashboards; no local commands.
 
-> ⚠️ The dashboard has no login of its own. Once real email/calendar accounts are connected, don't expose it to the public internet unprotected — keep it on your LAN/VPN (e.g. Tailscale), or set **`DASHBOARD_PASSWORD`** (optionally `DASHBOARD_USER`, default `admin`) to turn on built-in HTTP Basic auth. The gate covers the whole app; the browser prompts once and `/api/health` stays open for host health checks. Unset, the gate is a no-op so local/LAN use is unchanged.
+> ⚠️ The dashboard has no auth of its own. Once real email/calendar accounts are connected, don't expose it to the public internet unprotected — keep it on your LAN/VPN (e.g. Tailscale), or set **`DASHBOARD_PASSWORD`** to turn on the built-in **master-password login**. It shows a login screen, then keeps you in via a signed, HttpOnly session cookie that works even when the frontend (e.g. GitHub Pages) and backend are on different origins. `/api/health` and the login endpoints stay open so the screen can load and hosts can health-check; the static frontend loads but its data API stays gated. Optionally set `SESSION_SECRET` (a long random value) to sign cookies independently of the password. Unset `DASHBOARD_PASSWORD` and the login is disabled, so local/LAN use is unchanged.
 
 ## Project structure
 

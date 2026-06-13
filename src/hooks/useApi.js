@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { apiUrl } from '../lib/apiBase.js'
+import { apiFetch } from '../lib/apiBase.js'
 
 /**
  * Fetch JSON from the backend with a fallback (usually sample data from
@@ -11,7 +11,7 @@ export function useApi(path, { fallback = null, refreshMs = 0 } = {}) {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch(apiUrl(path), { headers: { accept: 'application/json' } })
+      const res = await apiFetch(path)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       setState({ loading: false, live: true, data, error: null })

@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import express from 'express'
 import { loadEnv } from './env.js'
 import { allowedOrigins } from './util.js'
-import { basicAuthGate } from './basicAuth.js'
+import { sessionGate } from './session.js'
 import { authRouter } from './routes/auth.js'
 import { calendarRouter } from './routes/calendar.js'
 import { emailsRouter } from './routes/emails.js'
@@ -31,6 +31,10 @@ app.use((req, res, next) => {
     res.setHeader('Vary', 'Origin')
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept')
+    // Lets the session cookie ride along on cross-origin requests from an
+    // allowed frontend (e.g. GitHub Pages). Requires a specific origin above,
+    // never a wildcard.
+    res.setHeader('Access-Control-Allow-Credentials', 'true')
     if (req.headers['access-control-request-private-network'] === 'true') {
       res.setHeader('Access-Control-Allow-Private-Network', 'true')
     }
@@ -39,10 +43,10 @@ app.use((req, res, next) => {
   next()
 })
 
-// Optional gate in front of everything below (API + the served frontend).
-// Active only when DASHBOARD_PASSWORD is set; /api/health stays open so
-// hosting platforms can health-check. See server/basicAuth.js.
-app.use(basicAuthGate())
+// Login gate in front of the data API. Active only when DASHBOARD_PASSWORD is
+// set; the static frontend, /api/health, and the auth endpoints stay open so
+// the login screen can load and hosts can health-check. See server/session.js.
+app.use(sessionGate())
 
 app.get('/api/health', (req, res) => res.json({ ok: true, time: new Date().toISOString() }))
 app.use('/api/auth', authRouter)
