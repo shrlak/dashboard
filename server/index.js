@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import express from 'express'
 import { loadEnv } from './env.js'
 import { allowedOrigins } from './util.js'
+import { basicAuthGate } from './basicAuth.js'
 import { authRouter } from './routes/auth.js'
 import { calendarRouter } from './routes/calendar.js'
 import { emailsRouter } from './routes/emails.js'
@@ -37,6 +38,11 @@ app.use((req, res, next) => {
   if (req.method === 'OPTIONS') return res.sendStatus(204)
   next()
 })
+
+// Optional gate in front of everything below (API + the served frontend).
+// Active only when DASHBOARD_PASSWORD is set; /api/health stays open so
+// hosting platforms can health-check. See server/basicAuth.js.
+app.use(basicAuthGate())
 
 app.get('/api/health', (req, res) => res.json({ ok: true, time: new Date().toISOString() }))
 app.use('/api/auth', authRouter)
