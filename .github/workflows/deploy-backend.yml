@@ -14,7 +14,7 @@
 #   DATA_DIR=/data            # mount a persistent volume here so tokens survive
 #   GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET   # for Gmail + Calendar
 #   ICLOUD_ICS_URLS           # (optional) public iCloud calendar share links
-#   DASHBOARD_PASSWORD        # protect the public URL (optional DASHBOARD_USER, default admin)
+#   DASHBOARD_PASSWORD        # master-password login (optional SESSION_SECRET to sign cookies)
 #   TZ=Asia/Seoul             # (optional)
 name: Build & publish backend image
 

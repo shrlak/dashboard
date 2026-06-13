@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import Panel from './Panel.jsx'
 import { useApi } from '../hooks/useApi.js'
-import { apiUrl, getApiBase, setApiBase } from '../lib/apiBase.js'
+import { apiFetch, apiUrl, getApiBase, setApiBase } from '../lib/apiBase.js'
 
 const STATUS = {
   connected: { label: 'Connected', ko: '연결됨', cls: 'ok' },
@@ -57,7 +57,7 @@ export default function ConnectionsPanel() {
   const disconnect = async (account) => {
     setBusy(account)
     try {
-      await fetch(apiUrl('/api/auth/google/disconnect'), {
+      await apiFetch('/api/auth/google/disconnect', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ account }),
