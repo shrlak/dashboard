@@ -1,0 +1,82 @@
+# Builds the full-stack image (frontend baked in, served by the backend) and
+# publishes it to the GitHub Container Registry (GHCR) on every push to main.
+# This is the GitHub-native half of "deploy a backend": GitHub builds and stores
+# the image for free. A container host then runs it — point your host at the
+# published image, or set a DEPLOY_HOOK_URL secret and this workflow will ping
+# it after each push so the host pulls the new image and redeploys.
+#
+# Published image:  ghcr.io/<owner>/<repo>:latest   (also tagged with the commit SHA)
+#
+# What the host needs (set these as env vars in the host's dashboard — no
+# terminal required):
+#   PORT=8787                 # or whatever port the host expects
+#   PUBLIC_URL=https://...    # the host's public URL (for the OAuth redirect)
+#   DATA_DIR=/data            # mount a persistent volume here so tokens survive
+#   GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET   # for Gmail + Calendar
+#   ICLOUD_ICS_URLS           # (optional) public iCloud calendar share links
+#   TZ=Asia/Seoul             # (optional)
+name: Build & publish backend image
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: true
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # GHCR image names must be lowercase; repo names can contain uppercase.
+      - name: Compute lowercase image name
+        id: image
+        run: echo "name=${REGISTRY}/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ steps.image.outputs.name }}:latest
+            ${{ steps.image.outputs.name }}:${{ github.sha }}
+
+      - name: Summary
+        run: |
+          {
+            echo "### Backend image published 🚀"
+            echo ""
+            echo "- \`${{ steps.image.outputs.name }}:latest\`"
+            echo "- \`${{ steps.image.outputs.name }}:${GITHUB_SHA::7}\`"
+            echo ""
+            echo "Point your container host at the image above (or set a DEPLOY_HOOK_URL secret)."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Optional: if you add a DEPLOY_HOOK_URL secret (most hosts — Render,
+      # Railway, Fly via an action, etc. — give you one), this tells the host to
+      # pull the freshly published image and redeploy. Skipped when unset.
+      # (secrets aren't available in `if:`, so map to env first.)
+      - name: Trigger host redeploy
+        env:
+          DEPLOY_HOOK_URL: ${{ secrets.DEPLOY_HOOK_URL }}
+        if: ${{ env.DEPLOY_HOOK_URL != '' }}
+        run: curl -fsS -X POST "$DEPLOY_HOOK_URL"

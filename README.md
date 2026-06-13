@@ -59,6 +59,23 @@ GitHub Pages hosts the **frontend**; the **backend** runs wherever you want (Pag
 
 **Hosted backend instead:** deploy the included `Dockerfile` (Render/Railway/Fly can build straight from this repo and redeploy on every push), set `PUBLIC_URL` and `ALLOWED_ORIGINS` on it, and mount a volume at `/data` so OAuth tokens survive restarts. Then point the frontend at it: set the repository variable `API_BASE` (Settings → Secrets and variables → Actions → Variables) for Pages builds, or paste the URL into the **Backend URL** field on the Connections tab.
 
+### Run everything in the cloud — no local terminal
+
+The Docker image builds the frontend *and* serves it, so one hosted container is the whole app at a single URL (no separate Pages site, no CORS, no `localhost`). The **`Build & publish backend image`** workflow (`.github/workflows/deploy-backend.yml`) does the build for you:
+
+1. **Push to `main`** → GitHub Actions builds the image and publishes it to GHCR as `ghcr.io/<owner>/<repo>:latest` (also tagged with the commit SHA). Nothing runs on your machine. One-time: make the package public or grant your host pull access under **Settings → Packages**.
+2. **Create a service on any container host** (Render/Railway/Fly/a VPS — all browser-driven) that runs the published image. Set its env vars in the host's dashboard:
+   - `PUBLIC_URL` = the service's own public URL (used to build the OAuth redirect)
+   - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` for Gmail + Calendar
+   - `ICLOUD_ICS_URLS` (optional) — public iCloud calendar links, comma-separated
+   - mount a **persistent volume at `/data`** (`DATA_DIR` already points there) so OAuth tokens survive restarts
+   - `ALLOWED_ORIGINS` is **not** needed — the container serves its own frontend, so requests are same-origin
+3. **Auto-redeploy on every push (optional):** copy your host's deploy-hook URL and add it as the repo secret `DEPLOY_HOOK_URL` (**Settings → Secrets and variables → Actions → Secrets**). The workflow pings it after each push so the host pulls the new image. Without it, enable the host's own "auto-deploy on new image" toggle instead.
+4. In the Google Cloud Console, register `<PUBLIC_URL>/api/auth/google/callback` as the OAuth redirect URI.
+5. Open `PUBLIC_URL` and connect accounts from the **Connections** tab. News and system stats are live immediately.
+
+> GHCR stores the image but doesn't run it — a container host is still required (GitHub doesn't host long-running app containers). Everything above is configured in web dashboards; no local commands.
+
 > ⚠️ The dashboard has no login of its own. Once real email/calendar accounts are connected, don't expose it to the public internet unprotected — keep it on your LAN/VPN (e.g. Tailscale) or put basic auth in front.
 
 ## Project structure
