@@ -19,16 +19,28 @@ export function googleConfigured() {
   return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET)
 }
 
-export function isConnected(account) {
-  return Boolean(getToken(account)?.refresh_token)
+export async function isConnected(account) {
+  return Boolean((await getToken(account))?.refresh_token)
 }
 
-export function connectedEmail(account) {
-  return getToken(account)?.email ?? null
+export async function connectedEmail(account) {
+  return (await getToken(account))?.email ?? null
 }
 
-export function disconnect(account) {
-  deleteToken(account)
+// One store read per account, resolved together — handlers use this instead of
+// calling the async isConnected/connectedEmail inside Array.filter/map.
+export async function connections() {
+  const entries = await Promise.all(
+    GOOGLE_ACCOUNTS.map(async (account) => {
+      const token = await getToken(account)
+      return [account, { connected: Boolean(token?.refresh_token), email: token?.email ?? null }]
+    })
+  )
+  return Object.fromEntries(entries)
+}
+
+export async function disconnect(account) {
+  await deleteToken(account)
 }
 
 export function authUrl(redirectUri, state) {
@@ -67,7 +79,7 @@ export async function handleCallback(account, code, redirectUri) {
   const who = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
     headers: { authorization: `Bearer ${tokens.access_token}` },
   }).then((r) => (r.ok ? r.json() : {}))
-  setToken(account, {
+  await setToken(account, {
     refresh_token: tokens.refresh_token,
     access_token: tokens.access_token,
     expires_at: Date.now() + (tokens.expires_in ?? 0) * 1000,
@@ -76,7 +88,7 @@ export async function handleCallback(account, code, redirectUri) {
 }
 
 async function accessTokenFor(account) {
-  const saved = getToken(account)
+  const saved = await getToken(account)
   if (!saved?.refresh_token) return null
   if (saved.access_token && saved.expires_at > Date.now() + 60000) return saved.access_token
   const tokens = await tokenRequest({
@@ -88,7 +100,7 @@ async function accessTokenFor(account) {
     access_token: tokens.access_token,
     expires_at: Date.now() + (tokens.expires_in ?? 0) * 1000,
   }
-  setToken(account, next)
+  await setToken(account, next)
   return next.access_token
 }
 

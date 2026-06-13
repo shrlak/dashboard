@@ -113,11 +113,11 @@ authRouter.get('/google/callback', async (req, res) => {
   }
 })
 
-authRouter.post('/google/disconnect', (req, res) => {
+authRouter.post('/google/disconnect', async (req, res) => {
   const account = String(req.body?.account || '')
   if (!GOOGLE_ACCOUNTS.includes(account)) {
     return res.status(400).json({ error: 'unknown account' })
   }
-  disconnect(account)
+  await disconnect(account)
   res.json({ ok: true })
 })

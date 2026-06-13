@@ -1,6 +1,6 @@
 import os from 'node:os'
 import { Router } from 'express'
-import { GOOGLE_ACCOUNTS, connectedEmail, googleConfigured, isConnected } from '../google.js'
+import { GOOGLE_ACCOUNTS, connections, googleConfigured } from '../google.js'
 import { icsUrls } from './calendar.js'
 
 export const integrationsRouter = Router()
@@ -11,9 +11,10 @@ export const integrationsRouter = Router()
 //   needs_setup  — requires .env configuration first
 //   built_in     — works out of the box, nothing to configure
 //   planned      — listed for transparency, not implemented yet
-integrationsRouter.get('/', (req, res) => {
+integrationsRouter.get('/', async (req, res) => {
   const hasCreds = googleConfigured()
-  const connected = GOOGLE_ACCOUNTS.filter(isConnected)
+  const conns = await connections()
+  const connected = GOOGLE_ACCOUNTS.filter((a) => conns[a].connected)
   const feeds = icsUrls()
 
   const gmailItem = (account, name, nameKo) => ({
@@ -23,9 +24,9 @@ integrationsRouter.get('/', (req, res) => {
     name,
     nameKo,
     account,
-    status: isConnected(account) ? 'connected' : hasCreds ? 'ready' : 'needs_setup',
-    detail: isConnected(account)
-      ? `Signed in as ${connectedEmail(account) ?? 'unknown'}`
+    status: conns[account].connected ? 'connected' : hasCreds ? 'ready' : 'needs_setup',
+    detail: conns[account].connected
+      ? `Signed in as ${conns[account].email ?? 'unknown'}`
       : hasCreds
         ? 'Sign in with Google to sync this inbox.'
         : 'Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env, then restart the backend.',
@@ -52,7 +53,7 @@ integrationsRouter.get('/', (req, res) => {
       nameKo: '구글 캘린더',
       status: connected.length ? 'connected' : hasCreds ? 'ready' : 'needs_setup',
       detail: connected.length
-        ? `Syncing all visible calendars of ${connected.map((a) => connectedEmail(a)).filter(Boolean).join(', ')}`
+        ? `Syncing all visible calendars of ${connected.map((a) => conns[a].email).filter(Boolean).join(', ')}`
         : 'Comes with the Gmail sign-in above — connecting either inbox also syncs its calendars.',
     },
     {

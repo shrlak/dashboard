@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { CALENDAR_EVENTS } from '../../src/data/mock.js'
-import { GOOGLE_ACCOUNTS, googleGet, isConnected } from '../google.js'
+import { GOOGLE_ACCOUNTS, connections, googleGet } from '../google.js'
 import { parseIcs } from '../ics.js'
 import { addDays, dayOffset, humanDuration, startOfDay } from '../util.js'
 
@@ -98,7 +98,8 @@ async function icsEvents(url, index, timeMin, timeMax) {
 }
 
 calendarRouter.get('/', async (req, res) => {
-  const connected = GOOGLE_ACCOUNTS.filter(isConnected)
+  const conns = await connections()
+  const connected = GOOGLE_ACCOUNTS.filter((a) => conns[a].connected)
   const feeds = icsUrls()
   if (!connected.length && !feeds.length) {
     return res.json({ source: 'sample', events: CALENDAR_EVENTS })

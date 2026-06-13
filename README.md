@@ -77,6 +77,18 @@ The Docker image builds the frontend *and* serves it, so one hosted container is
 
 > GHCR stores the image but doesn't run it — a container host is still required (GitHub doesn't host long-running app containers). Everything above is configured in web dashboards; no local commands.
 
+### GitHub Pages frontend + Vercel serverless API
+
+Run the backend as **Vercel serverless functions** instead of an always-on host — free, deploys from GitHub on every push, no server to manage. The frontend stays on GitHub Pages. `vercel.json` + `api/index.js` hand every request to the same Express app.
+
+1. **Import the repo on [Vercel](https://vercel.com/new)** → it picks up `vercel.json` and deploys `api/index.js`. You get a URL like `https://<project>.vercel.app`.
+2. **Add a Redis KV for tokens** (serverless has no disk): create a **Vercel KV** / **Upstash Redis** (free) and set its REST env vars (`KV_REST_API_URL`/`KV_REST_API_TOKEN` or `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN`). Without it, Google logins won't persist between requests.
+3. **Set the other env vars** on the Vercel project: `PUBLIC_URL` = the Vercel URL, `ALLOWED_ORIGINS=https://shrlak.github.io`, `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`, `DASHBOARD_PASSWORD` + `SESSION_SECRET`, and `ICLOUD_ICS_URLS` if used. Secrets stay server-side — never shipped to the browser.
+4. **Point Pages at it:** set the repo variable `API_BASE` to the Vercel URL (rebuild Pages), or paste it into the **Backend URL** field on the Connections tab.
+5. **Register the OAuth redirect** `https://<project>.vercel.app/api/auth/google/callback` in the Google Cloud Console.
+
+> ⚠️ **System health is limited on serverless.** CPU/network/uptime are measured by diffing counters over time on a persistent process; serverless functions are stateless and ephemeral, so those values are unreliable there (memory and connectivity still report). Everything else — Gmail, Calendar, News, Naver FX, iCloud, and the cross-origin login — works.
+
 > ⚠️ The dashboard has no auth of its own. Once real email/calendar accounts are connected, don't expose it to the public internet unprotected — keep it on your LAN/VPN (e.g. Tailscale), or set **`DASHBOARD_PASSWORD`** to turn on the built-in **master-password login**. It shows a login screen, then keeps you in via a signed, HttpOnly session cookie that works even when the frontend (e.g. GitHub Pages) and backend are on different origins. `/api/health` and the login endpoints stay open so the screen can load and hosts can health-check; the static frontend loads but its data API stays gated. Optionally set `SESSION_SECRET` (a long random value) to sign cookies independently of the password. Unset `DASHBOARD_PASSWORD` and the login is disabled, so local/LAN use is unchanged.
 
 ## Project structure
