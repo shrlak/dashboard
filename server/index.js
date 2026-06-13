@@ -8,6 +8,7 @@ import { sessionGate } from './session.js'
 import { authRouter } from './routes/auth.js'
 import { calendarRouter } from './routes/calendar.js'
 import { emailsRouter } from './routes/emails.js'
+import { exchangeRouter } from './routes/exchange.js'
 import { integrationsRouter } from './routes/integrations.js'
 import { newsRouter } from './routes/news.js'
 import { systemRouter } from './routes/system.js'
@@ -52,6 +53,7 @@ app.get('/api/health', (req, res) => res.json({ ok: true, time: new Date().toISO
 app.use('/api/auth', authRouter)
 app.use('/api/emails', emailsRouter)
 app.use('/api/calendar', calendarRouter)
+app.use('/api/exchange', exchangeRouter)
 app.use('/api/news', newsRouter)
 app.use('/api/system', systemRouter)
 app.use('/api/integrations', integrationsRouter)
