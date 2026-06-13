@@ -94,6 +94,37 @@ button {
   font-size: 13px;
 }
 
+.header .clock .tz-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.header .clock .tz-select {
+  font: inherit;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 3px 6px;
+  cursor: pointer;
+  outline: none;
+}
+
+.header .clock .tz-select:focus {
+  border-color: var(--accent);
+}
+
+.header .clock .tz-abbr {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-faint);
+}
+
 /* ---------- Main nav tabs ---------- */
 .main-tabs {
   display: flex;
