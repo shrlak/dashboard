@@ -76,11 +76,17 @@ if (fs.existsSync(dist)) {
   })
 }
 
-const port = +(process.env.PORT || 8787)
-app.listen(port, () => {
-  console.log(`Dashboard backend listening on http://localhost:${port}`)
-  if (!fs.existsSync(dist)) {
-    console.log('No dist/ found — run `npm run build` to serve the frontend from here,')
-    console.log('or keep using `npm run dev` (Vite proxies /api to this server).')
-  }
-})
+// On serverless (Vercel) the platform invokes the exported app directly and
+// must NOT bind a port. Locally / in Docker we listen as usual.
+if (!process.env.VERCEL) {
+  const port = +(process.env.PORT || 8787)
+  app.listen(port, () => {
+    console.log(`Dashboard backend listening on http://localhost:${port}`)
+    if (!fs.existsSync(dist)) {
+      console.log('No dist/ found — run `npm run build` to serve the frontend from here,')
+      console.log('or keep using `npm run dev` (Vite proxies /api to this server).')
+    }
+  })
+}
+
+export default app
