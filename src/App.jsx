@@ -2,7 +2,6 @@ import { useState } from 'react'
 import Header from './components/Header.jsx'
 import EmailPanel from './components/EmailPanel.jsx'
 import CalendarPanel from './components/CalendarPanel.jsx'
-import SystemHealthPanel from './components/SystemHealthPanel.jsx'
 import ExchangePanel from './components/ExchangePanel.jsx'
 import NewsPanel from './components/NewsPanel.jsx'
 import ConnectionsPanel from './components/ConnectionsPanel.jsx'
@@ -28,7 +27,6 @@ export default function App() {
             <>
               <EmailPanel />
               <CalendarPanel />
-              <SystemHealthPanel />
               <ExchangePanel />
               <NewsPanel />
             </>

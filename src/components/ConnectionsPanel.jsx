@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Panel from './Panel.jsx'
 import { useApi } from '../hooks/useApi.js'
 import { apiFetch, apiUrl, getApiBase, setApiBase } from '../lib/apiBase.js'
@@ -13,32 +13,51 @@ const STATUS = {
 }
 
 const CATEGORIES = [
-  ['Email', '메일'],
-  ['Calendar', '캘린더'],
+  ['Google accounts', '구글 계정'],
+  ['Other accounts', '기타 계정'],
   ['Feeds', '데이터 피드'],
-  ['System', '시스템'],
 ]
 
-// Shown when no backend is reachable (e.g. static GitHub Pages deploy).
+// Shown when the backend can't be reached (e.g. before one is deployed).
 const OFFLINE = {
-  offline: true,
   googleConfigured: false,
+  accounts: [],
   items: [
-    { id: 'gmail-personal', icon: '✉️', category: 'Email', name: 'Gmail — Personal', nameKo: '지메일 (개인)', status: 'offline', detail: 'Start the backend to connect this inbox.' },
-    { id: 'gmail-work', icon: '✉️', category: 'Email', name: 'Gmail — Work', nameKo: '지메일 (업무)', status: 'offline', detail: 'Start the backend to connect this inbox.' },
-    { id: 'icloud-mail', icon: '📮', category: 'Email', name: 'iCloud Mail', nameKo: '아이클라우드 메일', status: 'planned', detail: 'Needs an IMAP bridge with an app-specific password — not wired up yet.' },
-    { id: 'google-calendar', icon: '📅', category: 'Calendar', name: 'Google Calendar', nameKo: '구글 캘린더', status: 'offline', detail: 'Comes with the Gmail sign-in once the backend is running.' },
-    { id: 'icloud-calendar', icon: '☁️', category: 'Calendar', name: 'iCloud Calendar', nameKo: '아이클라우드 캘린더', status: 'offline', detail: 'Configured on the backend via ICLOUD_ICS_URLS.' },
+    { id: 'add-google', kind: 'add-google', icon: '➕', category: 'Google accounts', name: 'Link a Google account', nameKo: '구글 계정 연결', status: 'offline', detail: 'Deploy the backend and point the Backend URL below at it to link Gmail and Calendar accounts.' },
+    { id: 'icloud-calendar', icon: '☁️', category: 'Other accounts', name: 'iCloud Calendar', nameKo: '아이클라우드 캘린더', status: 'offline', detail: 'Configured on the backend via ICLOUD_ICS_URLS.' },
+    { id: 'icloud-mail', icon: '📮', category: 'Other accounts', name: 'iCloud Mail', nameKo: '아이클라우드 메일', status: 'planned', detail: 'Needs an IMAP bridge with an app-specific password — not wired up yet.' },
     { id: 'news', icon: '📰', category: 'Feeds', name: 'News briefing', nameKo: '뉴스 브리핑', status: 'offline', detail: 'Live headlines are fetched by the backend (Google News RSS).' },
-    { id: 'fx', icon: '💱', category: 'Feeds', name: 'KRW/USD rate', nameKo: '환율', status: 'built_in', detail: 'frankfurter.app — fetched directly by your browser, works without the backend.' },
-    { id: 'system', icon: '💻', category: 'System', name: 'System health', nameKo: '시스템 상태', status: 'offline', detail: 'Real stats come from the machine running the backend.' },
+    { id: 'fx', icon: '💱', category: 'Feeds', name: 'KRW/USD rate', nameKo: '환율', status: 'offline', detail: 'Naver Finance via the backend, with frankfurter.app as a browser-side fallback.' },
   ],
+}
+
+// The OAuth callback sends the browser back here with ?connected= or ?error=.
+function useOauthResult() {
+  const [result, setResult] = useState(null)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const connected = params.get('connected')
+    const error = params.get('error')
+    if (connected) setResult({ ok: true, text: `Linked ${connected}.` })
+    else if (error === 'limit') setResult({ ok: false, text: 'Account limit reached — disconnect one first.' })
+    else if (error === 'oauth') setResult({ ok: false, text: 'Google sign-in failed or was cancelled. Try again.' })
+    if (connected || error) {
+      // Clean the query string so a refresh doesn't replay the message.
+      const url = new URL(window.location.href)
+      for (const key of ['connected', 'error']) url.searchParams.delete(key)
+      window.history.replaceState({}, '', url)
+    }
+  }, [])
+  return result
 }
 
 export default function ConnectionsPanel() {
   const { data, live, refresh } = useApi('/api/integrations', { fallback: OFFLINE, refreshMs: 30000 })
   const [busy, setBusy] = useState(null)
+  const [renaming, setRenaming] = useState(null)
+  const [labelInput, setLabelInput] = useState('')
   const [baseInput, setBaseInput] = useState(getApiBase())
+  const oauthResult = useOauthResult()
   const offline = !live
   const backendOrigin = getApiBase() || window.location.origin
 
@@ -50,17 +69,17 @@ export default function ConnectionsPanel() {
   // After Google sign-in the backend sends the browser back here, even when
   // this frontend is hosted on a different origin (e.g. GitHub Pages).
   const connectHref = (item) =>
-    `${apiUrl(item.connectUrl)}&return=${encodeURIComponent(
+    `${apiUrl(item.connectUrl)}?return=${encodeURIComponent(
       window.location.origin + window.location.pathname
     )}`
 
-  const disconnect = async (account) => {
+  const post = async (path, body, account) => {
     setBusy(account)
     try {
-      await apiFetch('/api/auth/google/disconnect', {
+      await apiFetch(path, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ account }),
+        body: JSON.stringify(body),
       })
       await refresh()
     } finally {
@@ -68,7 +87,22 @@ export default function ConnectionsPanel() {
     }
   }
 
-  const connectedCount = data.items.filter((i) => i.status === 'connected').length
+  const disconnect = (account, email) => {
+    if (!window.confirm(`Disconnect ${email || 'this account'}? Its mail and calendars stop syncing.`)) return
+    post('/api/auth/google/disconnect', { account }, account)
+  }
+
+  const startRename = (item) => {
+    setRenaming(item.account)
+    setLabelInput(item.name)
+  }
+
+  const submitRename = async (account) => {
+    setRenaming(null)
+    if (labelInput.trim()) await post('/api/auth/google/rename', { account, label: labelInput }, account)
+  }
+
+  const linkedCount = data.accounts?.length ?? 0
 
   return (
     <Panel
@@ -80,20 +114,24 @@ export default function ConnectionsPanel() {
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <span className="badge">
             <span className="dot-sm" style={{ background: offline ? 'var(--red)' : 'var(--green)' }} />
-            {offline ? 'Backend offline' : `Backend online · ${connectedCount} connected`}
+            {offline
+              ? 'Backend offline'
+              : `Backend online · ${linkedCount} Google account${linkedCount === 1 ? '' : 's'}`}
           </span>
           <button className="refresh-btn" onClick={refresh}>↻ Refresh</button>
         </div>
       }
-      footer="OAuth tokens are stored on the backend only (server/.data/) and never reach the browser."
+      footer="OAuth tokens live on the backend only (its KV store or data volume) and never reach the browser."
     >
+      {oauthResult && (
+        <div className={`conn-banner ${oauthResult.ok ? 'ok' : ''}`}>{oauthResult.text}</div>
+      )}
+
       {offline && (
         <div className="conn-banner">
-          <b>The backend isn’t reachable at {backendOrigin}.</b> Start it with{' '}
-          <code>npm start</code> on the machine it should run on (and set{' '}
-          <code>ALLOWED_ORIGINS</code> in its <code>.env</code> when this page is hosted
-          elsewhere, e.g. GitHub Pages), or point the Backend URL below at a running instance.
-          Panels fall back to sample data meanwhile.
+          <b>The backend isn’t reachable at {backendOrigin}.</b> Deploy it once (Vercel or any
+          container host — see the README), then put its URL in the field below. Panels fall back
+          to sample data meanwhile.
         </div>
       )}
 
@@ -101,16 +139,16 @@ export default function ConnectionsPanel() {
         <div>
           <b>Backend URL</b> <span className="ko-dim">백엔드 주소</span>
           <div className="hint">
-            Where this dashboard fetches live data. Use <code>http://localhost:8787</code> when
-            the backend runs on your own computer; leave empty when the backend serves this app
-            itself.
+            The hosted API this dashboard reads from, e.g.{' '}
+            <code>https://your-dashboard.vercel.app</code>. Leave empty when the backend serves
+            this page itself.
           </div>
         </div>
         <div className="row">
           <input
             value={baseInput}
             onChange={(e) => setBaseInput(e.target.value)}
-            placeholder="http://localhost:8787"
+            placeholder="https://your-dashboard.vercel.app"
             spellCheck={false}
           />
           <button className="conn-btn primary" onClick={saveBase}>
@@ -130,12 +168,32 @@ export default function ConnectionsPanel() {
             <div className="conn-grid">
               {items.map((item) => {
                 const status = STATUS[item.status] ?? STATUS.offline
+                const isAccount = item.kind === 'google-account'
                 return (
-                  <div key={item.id} className="conn-card">
+                  <div
+                    key={item.id}
+                    className={`conn-card ${item.kind === 'add-google' ? 'add' : ''}`}
+                    style={isAccount ? { borderLeft: `3px solid ${item.color}` } : undefined}
+                  >
                     <div className="conn-head">
                       <span className="conn-icon">{item.icon}</span>
                       <div className="conn-name">
-                        {item.name}
+                        {renaming === item.account ? (
+                          <input
+                            className="conn-rename"
+                            autoFocus
+                            value={labelInput}
+                            maxLength={40}
+                            onChange={(e) => setLabelInput(e.target.value)}
+                            onBlur={() => submitRename(item.account)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') submitRename(item.account)
+                              if (e.key === 'Escape') setRenaming(null)
+                            }}
+                          />
+                        ) : (
+                          item.name
+                        )}
                         <span className="ko">{item.nameKo}</span>
                       </div>
                     </div>
@@ -146,17 +204,26 @@ export default function ConnectionsPanel() {
                       </span>
                       {item.status === 'ready' && item.connectUrl && (
                         <a className="conn-btn primary" href={connectHref(item)}>
-                          Connect
+                          {item.kind === 'add-google' ? 'Sign in with Google' : 'Connect'}
                         </a>
                       )}
-                      {item.status === 'connected' && item.account && (
-                        <button
-                          className="conn-btn"
-                          disabled={busy === item.account}
-                          onClick={() => disconnect(item.account)}
-                        >
-                          {busy === item.account ? '…' : 'Disconnect'}
-                        </button>
+                      {isAccount && (
+                        <>
+                          <button
+                            className="conn-btn"
+                            disabled={busy === item.account}
+                            onClick={() => startRename(item)}
+                          >
+                            Rename
+                          </button>
+                          <button
+                            className="conn-btn"
+                            disabled={busy === item.account}
+                            onClick={() => disconnect(item.account, item.email)}
+                          >
+                            {busy === item.account ? '…' : 'Disconnect'}
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>
@@ -184,10 +251,14 @@ export default function ConnectionsPanel() {
               URI.
             </li>
             <li>
-              Put <code>GOOGLE_CLIENT_ID</code> and <code>GOOGLE_CLIENT_SECRET</code> in{' '}
-              <code>.env</code> (see <code>.env.example</code>) and restart the backend.
+              Set <code>GOOGLE_CLIENT_ID</code> and <code>GOOGLE_CLIENT_SECRET</code> in your
+              host’s environment variables and redeploy.
             </li>
           </ol>
+          <p>
+            One OAuth client covers every account you link — sign in as many Google accounts as
+            you like, each becomes its own inbox tab and calendar colour.
+          </p>
         </div>
       )}
     </Panel>

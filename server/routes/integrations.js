@@ -1,6 +1,5 @@
-import os from 'node:os'
 import { Router } from 'express'
-import { GOOGLE_ACCOUNTS, connections, googleConfigured } from '../google.js'
+import { MAX_ACCOUNTS, googleConfigured, listAccounts } from '../google.js'
 import { icsUrls } from './calendar.js'
 
 export const integrationsRouter = Router()
@@ -8,64 +7,71 @@ export const integrationsRouter = Router()
 // Statuses the Connections tab understands:
 //   connected    — live and authenticated
 //   ready        — credentials configured, one click to connect
-//   needs_setup  — requires .env configuration first
+//   needs_setup  — requires configuration on the backend first
 //   built_in     — works out of the box, nothing to configure
 //   planned      — listed for transparency, not implemented yet
 integrationsRouter.get('/', async (req, res) => {
   const hasCreds = googleConfigured()
-  const conns = await connections()
-  const connected = GOOGLE_ACCOUNTS.filter((a) => conns[a].connected)
+  const accounts = await listAccounts()
   const feeds = icsUrls()
+  const roomLeft = accounts.length < MAX_ACCOUNTS
 
-  const gmailItem = (account, name, nameKo) => ({
-    id: account,
-    icon: '✉️',
-    category: 'Email',
-    name,
-    nameKo,
-    account,
-    status: conns[account].connected ? 'connected' : hasCreds ? 'ready' : 'needs_setup',
-    detail: conns[account].connected
-      ? `Signed in as ${conns[account].email ?? 'unknown'}`
-      : hasCreds
-        ? 'Sign in with Google to sync this inbox.'
-        : 'Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env, then restart the backend.',
-    connectUrl: `/api/auth/google?account=${account}`,
-  })
+  // One card per linked Google account: each one contributes both its inbox
+  // and its calendars.
+  const accountItems = accounts.map((a) => ({
+    id: a.id,
+    kind: 'google-account',
+    icon: '📬',
+    category: 'Google accounts',
+    name: a.label,
+    nameKo: a.email ?? '',
+    account: a.id,
+    email: a.email,
+    color: a.color,
+    status: 'connected',
+    detail: `${a.email ?? 'Unknown address'} — inbox and calendars are syncing.`,
+  }))
+
+  // The card that starts the OAuth flow. Google's account chooser decides
+  // which account gets linked, so this works any number of times.
+  const addItem = {
+    id: 'add-google',
+    kind: 'add-google',
+    icon: '➕',
+    category: 'Google accounts',
+    name: accounts.length ? 'Link another Google account' : 'Link a Google account',
+    nameKo: '구글 계정 연결',
+    status: hasCreds ? (roomLeft ? 'ready' : 'needs_setup') : 'needs_setup',
+    detail: !hasCreds
+      ? 'Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET on the backend, then reload.'
+      : roomLeft
+        ? 'Sign in with Google to add its Gmail inbox and calendars. Repeat for as many accounts as you like.'
+        : `Limit of ${MAX_ACCOUNTS} linked accounts reached — disconnect one to add another.`,
+    connectUrl: '/api/auth/google',
+  }
 
   const items = [
-    gmailItem('gmail-personal', 'Gmail — Personal', '지메일 (개인)'),
-    gmailItem('gmail-work', 'Gmail — Work', '지메일 (업무)'),
-    {
-      id: 'icloud-mail',
-      icon: '📮',
-      category: 'Email',
-      name: 'iCloud Mail',
-      nameKo: '아이클라우드 메일',
-      status: 'planned',
-      detail: 'Needs an IMAP bridge with an app-specific password — not wired up yet.',
-    },
-    {
-      id: 'google-calendar',
-      icon: '📅',
-      category: 'Calendar',
-      name: 'Google Calendar',
-      nameKo: '구글 캘린더',
-      status: connected.length ? 'connected' : hasCreds ? 'ready' : 'needs_setup',
-      detail: connected.length
-        ? `Syncing all visible calendars of ${connected.map((a) => conns[a].email).filter(Boolean).join(', ')}`
-        : 'Comes with the Gmail sign-in above — connecting either inbox also syncs its calendars.',
-    },
+    ...accountItems,
+    addItem,
     {
       id: 'icloud-calendar',
       icon: '☁️',
-      category: 'Calendar',
+      category: 'Other accounts',
       name: 'iCloud Calendar',
       nameKo: '아이클라우드 캘린더',
       status: feeds.length ? 'connected' : 'needs_setup',
       detail: feeds.length
         ? `${feeds.length} calendar feed${feeds.length > 1 ? 's' : ''} configured via ICLOUD_ICS_URLS`
         : 'In iCloud Calendar, make a calendar public and put its share link(s) in ICLOUD_ICS_URLS (comma-separated).',
+    },
+    {
+      id: 'icloud-mail',
+      icon: '📮',
+      category: 'Other accounts',
+      name: 'iCloud Mail',
+      nameKo: '아이클라우드 메일',
+      status: 'planned',
+      detail: 'Needs an IMAP bridge with an app-specific password — not wired up yet.',
     },
     {
       id: 'news',
@@ -83,18 +89,9 @@ integrationsRouter.get('/', async (req, res) => {
       name: 'KRW/USD rate',
       nameKo: '환율',
       status: 'built_in',
-      detail: 'frankfurter.app ECB reference rates, fetched directly by your browser — no key needed.',
-    },
-    {
-      id: 'system',
-      icon: '💻',
-      category: 'System',
-      name: 'System health',
-      nameKo: '시스템 상태',
-      status: 'built_in',
-      detail: `Real CPU, memory, disk and network stats from the machine running this backend (${os.hostname()}).`,
+      detail: 'Naver Finance via this backend, with frankfurter.app (ECB) as a fallback — no key needed.',
     },
   ]
 
-  res.json({ googleConfigured: hasCreds, items })
+  res.json({ googleConfigured: hasCreds, maxAccounts: MAX_ACCOUNTS, accounts, items })
 })

@@ -1,7 +1,7 @@
 // Where the backend lives. Resolution order:
 //   1. localStorage override (editable in the Connections tab)
-//   2. VITE_API_BASE baked in at build time (the GitHub Pages build points
-//      at http://localhost:8787 — the backend running on your own machine)
+//   2. VITE_API_BASE baked in at build time — the hosted backend's URL, set
+//      for the GitHub Pages build via the API_BASE repository variable
 //   3. '' — same origin (dev proxy, or the backend serving the built app)
 const KEY = 'dashboard.apiBase'
 
