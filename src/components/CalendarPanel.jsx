@@ -55,7 +55,7 @@ export default function CalendarPanel() {
       icon="📅"
       title="Calendar"
       titleKo="일정"
-      span={4}
+      span={7}
       actions={
         <div style={{ display: 'flex', gap: 6 }}>
           <span className="badge"><span className="dot-sm" style={{ background: 'var(--accent)' }} /> Google</span>

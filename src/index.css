@@ -360,6 +360,21 @@ button {
   gap: 14px;
 }
 
+/* The calendar panel is wide enough on desktop to put the month grid and
+   the agenda side by side; the agenda then fills the panel's height
+   instead of scrolling inside a short box. */
+@media (min-width: 900px) {
+  .cal-layout {
+    grid-template-columns: minmax(240px, 0.9fr) 1fr;
+    align-items: stretch;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .cal-layout .cal-month { align-self: start; }
+  .cal-layout .agenda { max-height: none; min-height: 0; }
+}
+
 .cal-month {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
@@ -448,54 +463,6 @@ button {
   border-radius: 6px;
   padding: 1px 6px;
   white-space: nowrap;
-}
-
-/* ---------- System health ---------- */
-.stat-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.stat {
-  background: var(--bg-soft);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 12px;
-}
-
-.stat .label {
-  font-size: 11px;
-  color: var(--text-dim);
-  display: flex;
-  justify-content: space-between;
-}
-
-.stat .value {
-  font-size: 20px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  margin: 2px 0 8px;
-}
-
-.stat .value small {
-  font-size: 11px;
-  font-weight: 400;
-  color: var(--text-faint);
-}
-
-.meter {
-  height: 6px;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.06);
-  overflow: hidden;
-}
-
-.meter > i {
-  display: block;
-  height: 100%;
-  border-radius: 4px;
-  transition: width 0.6s ease;
 }
 
 /* ---------- Exchange ---------- */
@@ -612,6 +579,33 @@ button {
 }
 
 .conn-banner b { color: var(--text); }
+
+/* Success variant — shown after an account is linked. */
+.conn-banner.ok {
+  background: rgba(62, 207, 142, 0.08);
+  border-color: rgba(62, 207, 142, 0.3);
+  color: var(--green);
+}
+
+/* The "link another account" card reads as an action, not a status. */
+.conn-card.add {
+  border-style: dashed;
+  background: transparent;
+}
+
+.conn-rename {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 2px 6px;
+  width: 100%;
+  max-width: 200px;
+  outline: none;
+}
 
 .conn-backend {
   display: flex;
@@ -790,6 +784,7 @@ button {
 
 .conn-setup b { color: var(--text); }
 .conn-setup ol { margin: 8px 0 0 18px; display: flex; flex-direction: column; gap: 4px; }
+.conn-setup p { margin-top: 8px; }
 .conn-setup a { color: var(--accent); }
 
 /* ---------- Misc ---------- */
@@ -889,12 +884,4 @@ button {
 .logout-btn:hover {
   color: var(--text);
   border-color: var(--accent);
-}
-
-/* ---------- System status strip ---------- */
-.sys-status {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-bottom: 12px;
 }

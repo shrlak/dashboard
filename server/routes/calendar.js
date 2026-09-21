@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { CALENDAR_EVENTS } from '../../src/data/mock.js'
-import { GOOGLE_ACCOUNTS, connections, googleGet } from '../google.js'
+import { googleGet, listAccounts } from '../google.js'
 import { parseIcs } from '../ics.js'
 import { addDays, dayOffset, humanDuration, startOfDay } from '../util.js'
 
@@ -36,20 +36,20 @@ function mapEvent({ start, end, allDay, title, source, color, id, calendar = nul
 async function googleCalendars(account) {
   try {
     const data = await googleGet(
-      account,
+      account.id,
       'https://www.googleapis.com/calendar/v3/users/me/calendarList' +
         '?fields=items(id,summary,primary,selected,backgroundColor)&minAccessRole=reader'
     )
     const cals = (data.items ?? []).filter((c) => c.primary || c.selected)
     if (cals.length) return cals
   } catch (e) {
-    console.error(`calendarList(${account}) failed:`, e.message)
+    console.error(`calendarList(${account.email ?? account.id}) failed:`, e.message)
   }
   // Fall back to just the primary calendar so the panel still works.
   return [{ id: 'primary', primary: true }]
 }
 
-async function googleEvents(account, cal, timeMin, timeMax) {
+async function googleEvents(account, cal, timeMin, timeMax, multiAccount) {
   const params = new URLSearchParams({
     timeMin: timeMin.toISOString(),
     timeMax: timeMax.toISOString(),
@@ -58,7 +58,7 @@ async function googleEvents(account, cal, timeMin, timeMax) {
     maxResults: '50',
   })
   const data = await googleGet(
-    account,
+    account.id,
     `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events?${params}`
   )
   return (data.items ?? [])
@@ -66,15 +66,16 @@ async function googleEvents(account, cal, timeMin, timeMax) {
     .map((e) => {
       const allDay = !e.start.dateTime
       return mapEvent({
-        id: `${account}-${cal.id}-${e.id}`,
+        id: `${account.id}-${cal.id}-${e.id}`,
         start: new Date(e.start.dateTime ?? `${e.start.date}T00:00:00`),
         end: e.end ? new Date(e.end.dateTime ?? `${e.end.date}T00:00:00`) : null,
         allDay,
         title: e.summary || '(untitled)',
         source: 'Google',
-        // Name the non-primary calendar so the agenda can label it.
-        calendar: cal.primary ? null : cal.summary || null,
-        color: cal.backgroundColor || 'var(--accent)',
+        // Label the event with its calendar — or, for a primary calendar when
+        // several Google accounts are linked, with the account it came from.
+        calendar: cal.primary ? (multiAccount ? account.label : null) : cal.summary || null,
+        color: cal.backgroundColor || account.color,
       })
     })
 }
@@ -98,23 +99,25 @@ async function icsEvents(url, index, timeMin, timeMax) {
 }
 
 calendarRouter.get('/', async (req, res) => {
-  const conns = await connections()
-  const connected = GOOGLE_ACCOUNTS.filter((a) => conns[a].connected)
+  const linked = await listAccounts()
   const feeds = icsUrls()
-  if (!connected.length && !feeds.length) {
+  if (!linked.length && !feeds.length) {
     return res.json({ source: 'sample', events: CALENDAR_EVENTS })
   }
   const timeMin = startOfDay(new Date())
   const timeMax = addDays(timeMin, WINDOW_DAYS)
+  const multiAccount = linked.length > 1
 
-  // Expand each connected account into its visible calendars first, then fetch
+  // Expand each linked account into its visible calendars first, then fetch
   // events from every calendar (primary + secondary) in parallel.
   const calLists = await Promise.allSettled(
-    connected.map(async (a) => ({ account: a, cals: await googleCalendars(a) }))
+    linked.map(async (a) => ({ account: a, cals: await googleCalendars(a) }))
   )
   const googleJobs = calLists.flatMap((r) =>
     r.status === 'fulfilled'
-      ? r.value.cals.map((cal) => googleEvents(r.value.account, cal, timeMin, timeMax))
+      ? r.value.cals.map((cal) =>
+          googleEvents(r.value.account, cal, timeMin, timeMax, multiAccount)
+        )
       : []
   )
 

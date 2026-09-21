@@ -1,10 +1,12 @@
 import { Router } from 'express'
 import {
-  GOOGLE_ACCOUNTS,
+  MAX_ACCOUNTS,
   authUrl,
   disconnect,
   googleConfigured,
   handleCallback,
+  listAccounts,
+  renameAccount,
 } from '../google.js'
 import { allowedOrigins } from '../util.js'
 import {
@@ -82,31 +84,34 @@ function frontendRedirect(returnTo, params) {
   return url.toString()
 }
 
-authRouter.get('/google', (req, res) => {
+// Starts linking a Google account. Whichever account the user picks in
+// Google's chooser is the one that gets linked — sign in repeatedly to add
+// as many as you like.
+authRouter.get('/google', async (req, res) => {
   if (!googleConfigured()) {
     return res
       .status(400)
-      .json({ error: 'Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env first.' })
-  }
-  const account = String(req.query.account || '')
-  if (!GOOGLE_ACCOUNTS.includes(account)) {
-    return res.status(400).json({ error: `account must be one of: ${GOOGLE_ACCOUNTS.join(', ')}` })
+      .json({ error: 'Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET on the backend first.' })
   }
   const returnTo = safeReturnTo(req.query.return, req)
-  const state = encodeState({ account, return: returnTo ? returnTo.toString() : null })
+  if ((await listAccounts()).length >= MAX_ACCOUNTS) {
+    return res.redirect(frontendRedirect(returnTo, { tab: 'connections', error: 'limit' }))
+  }
+  const state = encodeState({ return: returnTo ? returnTo.toString() : null })
   res.redirect(authUrl(redirectUri(req), state))
 })
 
 authRouter.get('/google/callback', async (req, res) => {
   const state = decodeState(req.query.state)
-  const account = GOOGLE_ACCOUNTS.includes(state.account) ? state.account : null
   const returnTo = safeReturnTo(state.return, req)
-  if (req.query.error || !req.query.code || !account) {
+  if (req.query.error || !req.query.code) {
     return res.redirect(frontendRedirect(returnTo, { tab: 'connections', error: 'oauth' }))
   }
   try {
-    await handleCallback(account, String(req.query.code), redirectUri(req))
-    res.redirect(frontendRedirect(returnTo, { tab: 'connections', connected: account }))
+    const account = await handleCallback(String(req.query.code), redirectUri(req))
+    res.redirect(
+      frontendRedirect(returnTo, { tab: 'connections', connected: account.email ?? account.id })
+    )
   } catch (e) {
     console.error('OAuth callback failed:', e.message)
     res.redirect(frontendRedirect(returnTo, { tab: 'connections', error: 'oauth' }))
@@ -115,9 +120,17 @@ authRouter.get('/google/callback', async (req, res) => {
 
 authRouter.post('/google/disconnect', async (req, res) => {
   const account = String(req.body?.account || '')
-  if (!GOOGLE_ACCOUNTS.includes(account)) {
-    return res.status(400).json({ error: 'unknown account' })
+  if (!(await disconnect(account))) {
+    return res.status(404).json({ error: 'unknown account' })
   }
-  await disconnect(account)
   res.json({ ok: true })
+})
+
+// Rename an inbox tab — purely cosmetic, so two accounts can be told apart.
+authRouter.post('/google/rename', async (req, res) => {
+  const account = String(req.body?.account || '')
+  const label = String(req.body?.label ?? '')
+  const updated = await renameAccount(account, label)
+  if (!updated) return res.status(404).json({ error: 'unknown account' })
+  res.json({ ok: true, account: updated })
 })

@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { EMAIL_ACCOUNTS, EMAILS } from '../../src/data/mock.js'
-import { ACCOUNT_META, GOOGLE_ACCOUNTS, connections, googleGet } from '../google.js'
+import { googleGet, listAccounts } from '../google.js'
 import { decodeEntities, shortTime } from '../util.js'
 
 export const emailsRouter = Router()
@@ -42,18 +42,17 @@ async function fetchInbox(account) {
 }
 
 emailsRouter.get('/', async (req, res) => {
-  const conns = await connections()
-  const connected = GOOGLE_ACCOUNTS.filter((a) => conns[a].connected)
-  if (!connected.length) {
+  const linked = await listAccounts()
+  if (!linked.length) {
     return res.json({ source: 'sample', accounts: EMAIL_ACCOUNTS, emails: EMAILS })
   }
-  const accounts = connected.map((id) => ({
-    id,
-    label: ACCOUNT_META[id].label,
-    address: conns[id].email ?? '',
-    color: ACCOUNT_META[id].color,
+  const accounts = linked.map((a) => ({
+    id: a.id,
+    label: a.label,
+    address: a.email ?? '',
+    color: a.color,
   }))
-  const results = await Promise.allSettled(connected.map(fetchInbox))
+  const results = await Promise.allSettled(linked.map((a) => fetchInbox(a.id)))
   const emails = results
     .flatMap((r) => (r.status === 'fulfilled' ? r.value : []))
     .sort((a, b) => b.at - a.at)

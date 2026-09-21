@@ -2,17 +2,19 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-// OAuth tokens are persisted one of two ways:
+// Small persistence layer for everything the backend must remember between
+// requests: OAuth tokens (`token:<id>`) and the list of linked Google
+// accounts (`accounts`). Two interchangeable backends:
 //   • A Redis KV store (Upstash / Vercel KV) when its REST env vars are set —
 //     required on serverless hosts (Vercel) that have no persistent disk.
-//   • Otherwise a local gitignored JSON file (DATA_DIR/tokens.json) — used for
-//     local dev and any host with a writable disk.
+//   • Otherwise a local gitignored JSON file (DATA_DIR/tokens.json) — used by
+//     a container with a mounted volume, or by `npm start` during development.
 // The API is async so either backend works behind the same calls.
 
 const KV_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL
 const KV_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN
 const useKv = Boolean(KV_URL && KV_TOKEN)
-const KV_PREFIX = 'dashboard:token:'
+const KV_PREFIX = 'dashboard:'
 
 const DATA_DIR =
   process.env.DATA_DIR || path.join(path.dirname(fileURLToPath(import.meta.url)), '.data')
@@ -43,7 +45,7 @@ function writeFile(all) {
   fs.writeFileSync(FILE, JSON.stringify(all, null, 2), { mode: 0o600 })
 }
 
-export async function getToken(key) {
+export async function getRecord(key) {
   if (useKv) {
     const raw = await kv(['GET', KV_PREFIX + key])
     return raw ? JSON.parse(raw) : null
@@ -51,7 +53,7 @@ export async function getToken(key) {
   return readFile()[key] ?? null
 }
 
-export async function setToken(key, value) {
+export async function setRecord(key, value) {
   if (useKv) {
     await kv(['SET', KV_PREFIX + key, JSON.stringify(value)])
     return
@@ -61,7 +63,7 @@ export async function setToken(key, value) {
   writeFile(all)
 }
 
-export async function deleteToken(key) {
+export async function deleteRecord(key) {
   if (useKv) {
     await kv(['DEL', KV_PREFIX + key])
     return

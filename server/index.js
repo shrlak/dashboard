@@ -11,7 +11,6 @@ import { emailsRouter } from './routes/emails.js'
 import { exchangeRouter } from './routes/exchange.js'
 import { integrationsRouter } from './routes/integrations.js'
 import { newsRouter } from './routes/news.js'
-import { systemRouter } from './routes/system.js'
 
 loadEnv()
 
@@ -55,7 +54,6 @@ app.use('/api/emails', emailsRouter)
 app.use('/api/calendar', calendarRouter)
 app.use('/api/exchange', exchangeRouter)
 app.use('/api/news', newsRouter)
-app.use('/api/system', systemRouter)
 app.use('/api/integrations', integrationsRouter)
 app.use('/api', (req, res) => res.status(404).json({ error: 'not found' }))
 
