@@ -28,23 +28,21 @@ The Worker is the whole backend — no separate database, no container, no serve
 
 ## One-time setup
 
-You need a free [Cloudflare account](https://dash.cloudflare.com/sign-up) and the `wrangler` CLI (already a dev dependency — `npx wrangler login` after `npm install`).
+You need a [Cloudflare account](https://dash.cloudflare.com/sign-up) (the free plan is enough) and the `wrangler` CLI, which is already a dev dependency.
 
-### 1. Create the KV namespace
+### 1. Sign in to Cloudflare
 
 ```bash
 npm install
 npx wrangler login
-npx wrangler kv namespace create TOKENS
 ```
 
-This prints an `id`. Paste it into `wrangler.toml`:
+The `personal-dashboard-api-TOKENS` KV namespace already exists and
+`wrangler.toml` points at its id, so there's nothing to create here.
 
-```toml
-[[kv_namespaces]]
-binding = "TOKENS"
-id = "paste-the-id-here"
-```
+> Deploying into a *different* Cloudflare account? Run
+> `npx wrangler kv namespace create TOKENS` and replace the `id` under
+> `[[kv_namespaces]]` in `wrangler.toml` with the one it prints.
 
 ### 2. Set the Worker's secrets
 
