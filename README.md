@@ -28,23 +28,21 @@ The Worker is the whole backend — no separate database, no container, no serve
 
 ## One-time setup
 
-You need a free [Cloudflare account](https://dash.cloudflare.com/sign-up) and the `wrangler` CLI (already a dev dependency — `npx wrangler login` after `npm install`).
+You need a [Cloudflare account](https://dash.cloudflare.com/sign-up) (the free plan is enough) and the `wrangler` CLI, which is already a dev dependency.
 
-### 1. Create the KV namespace
+### 1. Sign in to Cloudflare
 
 ```bash
 npm install
 npx wrangler login
-npx wrangler kv namespace create TOKENS
 ```
 
-This prints an `id`. Paste it into `wrangler.toml`:
+The `personal-dashboard-api-TOKENS` KV namespace already exists and
+`wrangler.toml` points at its id, so there's nothing to create here.
 
-```toml
-[[kv_namespaces]]
-binding = "TOKENS"
-id = "paste-the-id-here"
-```
+> Deploying into a *different* Cloudflare account? Run
+> `npx wrangler kv namespace create TOKENS` and replace the `id` under
+> `[[kv_namespaces]]` in `wrangler.toml` with the one it prints.
 
 ### 2. Set the Worker's secrets
 
@@ -73,7 +71,9 @@ This prints the Worker's URL, e.g. `https://personal-dashboard-api.<you>.workers
 
 ### 5. Point GitHub Pages at the Worker
 
-- Repo **Settings → Pages → Source → GitHub Actions** (one-time).
+- Repo **Settings → Pages → Source → "Deploy from a branch" → Branch: `gh-pages` / `(root)`**
+  (one-time). The workflow publishes the built frontend to the `gh-pages` branch, so the
+  "GitHub Actions" source setting is *not* the right one here.
 - Repo **Settings → Secrets and variables → Actions → Variables → New repository variable**: `API_BASE` = your Worker's URL.
 - Push to `main` (or re-run the "Publish to gh-pages" workflow) — the frontend is now live at `https://<user>.github.io/<repo>/` and calling your Worker for live data.
 

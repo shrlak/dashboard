@@ -2,12 +2,12 @@ name = "personal-dashboard-api"
 main = "worker/index.js"
 compatibility_date = "2024-09-23"
 
-# One-time setup: `wrangler kv namespace create TOKENS`, then paste the id
-# it prints below. Local `wrangler dev` works without this (it uses a local
-# emulated namespace automatically) — the real id is only needed to deploy.
+# The "personal-dashboard-api-TOKENS" namespace this id points at already
+# exists in the account. Local `wrangler dev` ignores it and uses a local
+# emulated namespace; deploys read and write the real one.
 [[kv_namespaces]]
 binding = "TOKENS"
-id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
+id = "842181f59c2043c6a87c5d7d11c8f574"
 
 # Non-secret configuration. Secrets (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
 # DASHBOARD_PASSWORD, SESSION_SECRET) are set with `wrangler secret put NAME`
