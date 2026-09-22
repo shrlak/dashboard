@@ -1,11 +1,13 @@
 // Shared formatting helpers for the API routes. The frontend panels were
 // built around the shapes in src/data/mock.js, so everything here formats
-// live data into those same shapes.
+// live data into those same shapes. Pure functions, ported unchanged from
+// the Express backend except allowedOrigins, which now reads its config
+// from the Worker's env bindings instead of process.env.
 
 // Origins (e.g. your GitHub Pages site) allowed to call this backend
 // cross-origin and to be OAuth return destinations.
-export function allowedOrigins() {
-  return (process.env.ALLOWED_ORIGINS || '')
+export function allowedOrigins(env) {
+  return (env.ALLOWED_ORIGINS || '')
     .split(',')
     .map((s) => s.trim().replace(/\/$/, ''))
     .filter(Boolean)

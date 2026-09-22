@@ -1,8 +1,8 @@
-import { Router } from 'express'
-import { MAX_ACCOUNTS, googleConfigured, listAccounts } from '../google.js'
+import { Hono } from 'hono'
+import { MAX_ACCOUNTS, googleConfigured, listAccounts } from '../lib/google.js'
 import { icsUrls } from './calendar.js'
 
-export const integrationsRouter = Router()
+export const integrationsRoutes = new Hono()
 
 // Statuses the Connections tab understands:
 //   connected    — live and authenticated
@@ -10,10 +10,10 @@ export const integrationsRouter = Router()
 //   needs_setup  — requires configuration on the backend first
 //   built_in     — works out of the box, nothing to configure
 //   planned      — listed for transparency, not implemented yet
-integrationsRouter.get('/', async (req, res) => {
-  const hasCreds = googleConfigured()
-  const accounts = await listAccounts()
-  const feeds = icsUrls()
+integrationsRoutes.get('/', async (c) => {
+  const hasCreds = googleConfigured(c.env)
+  const accounts = await listAccounts(c.env)
+  const feeds = icsUrls(c.env)
   const roomLeft = accounts.length < MAX_ACCOUNTS
 
   // One card per linked Google account: each one contributes both its inbox
@@ -93,5 +93,5 @@ integrationsRouter.get('/', async (req, res) => {
     },
   ]
 
-  res.json({ googleConfigured: hasCreds, maxAccounts: MAX_ACCOUNTS, accounts, items })
+  return c.json({ googleConfigured: hasCreds, maxAccounts: MAX_ACCOUNTS, accounts, items })
 })

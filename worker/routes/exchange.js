@@ -1,6 +1,6 @@
-import { Router } from 'express'
+import { Hono } from 'hono'
 
-export const exchangeRouter = Router()
+export const exchangeRoutes = new Hono()
 
 // KRW per 1 USD with ~30 days of history. Primary source is Naver Finance
 // (the rate Koreans actually see); frankfurter.app (ECB) is the fallback.
@@ -8,6 +8,8 @@ export const exchangeRouter = Router()
 // the browser can't fetch them directly.
 
 const CACHE_MS = 10 * 60 * 1000
+// Module-level cache persists across requests on a warm Worker isolate —
+// same caveat as any serverless host: a cold isolate just refetches.
 let cache = { at: 0, payload: null }
 
 // Naver mobile finance: recent daily closes for USD/KRW.
@@ -57,8 +59,8 @@ async function fromFrankfurter() {
   return { source: 'frankfurter.app', rate: series[series.length - 1].rate, series }
 }
 
-exchangeRouter.get('/', async (req, res) => {
-  if (cache.payload && Date.now() - cache.at < CACHE_MS) return res.json(cache.payload)
+exchangeRoutes.get('/', async (c) => {
+  if (cache.payload && Date.now() - cache.at < CACHE_MS) return c.json(cache.payload)
 
   const errors = []
   for (const source of [fromNaver, fromFrankfurter]) {
@@ -66,11 +68,11 @@ exchangeRouter.get('/', async (req, res) => {
       const out = await source()
       const payload = { ...out, updatedAt: new Date().toISOString() }
       cache = { at: Date.now(), payload }
-      return res.json(payload)
+      return c.json(payload)
     } catch (e) {
       errors.push(String(e.message ?? e))
     }
   }
   console.error('Exchange fetch errors:', errors)
-  res.status(502).json({ error: 'exchange unavailable', errors })
+  return c.json({ error: 'exchange unavailable', errors }, 502)
 })

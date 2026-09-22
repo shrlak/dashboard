@@ -1,0 +1,17 @@
+# Local `wrangler dev` reads secrets/vars from a .dev.vars file (gitignored)
+# instead of wrangler.toml. Copy this to .dev.vars and fill in what you need
+# — everything is optional; panels fall back to sample data until their
+# integration is configured. See README for the deployed-Worker equivalent
+# (`wrangler secret put`).
+
+# Google OAuth client (Web application) from console.cloud.google.com.
+# Authorized redirect URI for local dev: http://localhost:8787/api/auth/google/callback
+# GOOGLE_CLIENT_ID=
+# GOOGLE_CLIENT_SECRET=
+
+# Master-password login — leave unset for local dev.
+# DASHBOARD_PASSWORD=
+# SESSION_SECRET=
+
+# iCloud calendars: public webcal:// share links, comma-separated.
+# ICLOUD_ICS_URLS=

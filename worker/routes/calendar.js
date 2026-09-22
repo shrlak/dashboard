@@ -1,15 +1,15 @@
-import { Router } from 'express'
+import { Hono } from 'hono'
 import { CALENDAR_EVENTS } from '../../src/data/mock.js'
-import { googleGet, listAccounts } from '../google.js'
-import { parseIcs } from '../ics.js'
-import { addDays, dayOffset, humanDuration, startOfDay } from '../util.js'
+import { googleGet, listAccounts } from '../lib/google.js'
+import { parseIcs } from '../lib/ics.js'
+import { addDays, dayOffset, humanDuration, startOfDay } from '../lib/util.js'
 
-export const calendarRouter = Router()
+export const calendarRoutes = new Hono()
 
 const WINDOW_DAYS = 14
 
-export function icsUrls() {
-  return (process.env.ICLOUD_ICS_URLS || '')
+export function icsUrls(env) {
+  return (env.ICLOUD_ICS_URLS || '')
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean)
@@ -33,9 +33,10 @@ function mapEvent({ start, end, allDay, title, source, color, id, calendar = nul
 
 // All calendars the account has chosen to show (primary + the secondary /
 // shared ones ticked in Google Calendar), not just the primary calendar.
-async function googleCalendars(account) {
+async function googleCalendars(env, account) {
   try {
     const data = await googleGet(
+      env,
       account.id,
       'https://www.googleapis.com/calendar/v3/users/me/calendarList' +
         '?fields=items(id,summary,primary,selected,backgroundColor)&minAccessRole=reader'
@@ -49,7 +50,7 @@ async function googleCalendars(account) {
   return [{ id: 'primary', primary: true }]
 }
 
-async function googleEvents(account, cal, timeMin, timeMax, multiAccount) {
+async function googleEvents(env, account, cal, timeMin, timeMax, multiAccount) {
   const params = new URLSearchParams({
     timeMin: timeMin.toISOString(),
     timeMax: timeMax.toISOString(),
@@ -58,6 +59,7 @@ async function googleEvents(account, cal, timeMin, timeMax, multiAccount) {
     maxResults: '50',
   })
   const data = await googleGet(
+    env,
     account.id,
     `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events?${params}`
   )
@@ -98,11 +100,11 @@ async function icsEvents(url, index, timeMin, timeMax) {
     )
 }
 
-calendarRouter.get('/', async (req, res) => {
-  const linked = await listAccounts()
-  const feeds = icsUrls()
+calendarRoutes.get('/', async (c) => {
+  const linked = await listAccounts(c.env)
+  const feeds = icsUrls(c.env)
   if (!linked.length && !feeds.length) {
-    return res.json({ source: 'sample', events: CALENDAR_EVENTS })
+    return c.json({ source: 'sample', events: CALENDAR_EVENTS })
   }
   const timeMin = startOfDay(new Date())
   const timeMax = addDays(timeMin, WINDOW_DAYS)
@@ -111,12 +113,12 @@ calendarRouter.get('/', async (req, res) => {
   // Expand each linked account into its visible calendars first, then fetch
   // events from every calendar (primary + secondary) in parallel.
   const calLists = await Promise.allSettled(
-    linked.map(async (a) => ({ account: a, cals: await googleCalendars(a) }))
+    linked.map(async (a) => ({ account: a, cals: await googleCalendars(c.env, a) }))
   )
   const googleJobs = calLists.flatMap((r) =>
     r.status === 'fulfilled'
       ? r.value.cals.map((cal) =>
-          googleEvents(r.value.account, cal, timeMin, timeMax, multiAccount)
+          googleEvents(c.env, r.value.account, cal, timeMin, timeMax, multiAccount)
         )
       : []
   )
@@ -132,5 +134,5 @@ calendarRouter.get('/', async (req, res) => {
     .filter((r) => r.status === 'rejected')
     .map((r) => String(r.reason?.message ?? r.reason))
   if (errors.length) console.error('Calendar fetch errors:', errors)
-  res.json({ source: 'live', events, errors })
+  return c.json({ source: 'live', events, errors })
 })

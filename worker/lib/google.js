@@ -1,5 +1,5 @@
-import crypto from 'node:crypto'
-import { getRecord, setRecord, deleteRecord } from './store.js'
+import { getRecord, setRecord, deleteRecord } from './kv.js'
+import { sha256Hex } from './crypto.js'
 
 // Google accounts are linked dynamically: sign in as many times as you like
 // and each Google account becomes its own inbox tab and calendar source.
@@ -32,12 +32,13 @@ const SCOPES = [
   'https://www.googleapis.com/auth/userinfo.email',
 ].join(' ')
 
-export function googleConfigured() {
-  return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET)
+export function googleConfigured(env) {
+  return Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET)
 }
 
-function accountId(email) {
-  return `g${crypto.createHash('sha256').update(email.trim().toLowerCase()).digest('hex').slice(0, 10)}`
+async function accountId(email) {
+  const hex = await sha256Hex(email.trim().toLowerCase())
+  return `g${hex.slice(0, 10)}`
 }
 
 // "spencer.kim@gmail.com" → "Spencer.kim" — a sensible starting label the
@@ -54,15 +55,14 @@ const LEGACY = [
   { id: 'gmail-work', label: 'Work' },
 ]
 
-async function migrateLegacy() {
+async function migrateLegacy(env) {
   const found = []
   for (const [i, legacy] of LEGACY.entries()) {
-    // Old KV deployments stored `dashboard:token:<id>`, which the current
-    // prefix + key spells the same way; the old file backend used a bare id.
-    const token = (await getRecord(tokenKey(legacy.id))) ?? (await getRecord(legacy.id))
+    // Old deployments stored the token under the bare account id.
+    const token = (await getRecord(env, tokenKey(legacy.id))) ?? (await getRecord(env, legacy.id))
     if (!token?.refresh_token) continue
-    const id = token.email ? accountId(token.email) : legacy.id
-    await setRecord(tokenKey(id), token)
+    const id = token.email ? await accountId(token.email) : legacy.id
+    await setRecord(env, tokenKey(id), token)
     found.push({
       id,
       email: token.email ?? null,
@@ -71,45 +71,45 @@ async function migrateLegacy() {
       addedAt: Date.now(),
     })
   }
-  if (found.length) await setRecord(INDEX_KEY, found)
+  if (found.length) await setRecord(env, INDEX_KEY, found)
   return found
 }
 
-export async function listAccounts() {
-  const saved = await getRecord(INDEX_KEY)
+export async function listAccounts(env) {
+  const saved = await getRecord(env, INDEX_KEY)
   if (Array.isArray(saved)) return saved
-  return migrateLegacy()
+  return migrateLegacy(env)
 }
 
-export async function getAccount(id) {
-  return (await listAccounts()).find((a) => a.id === id) ?? null
+export async function getAccount(env, id) {
+  return (await listAccounts(env)).find((a) => a.id === id) ?? null
 }
 
-async function saveAccounts(accounts) {
-  await setRecord(INDEX_KEY, accounts)
+async function saveAccounts(env, accounts) {
+  await setRecord(env, INDEX_KEY, accounts)
 }
 
-export async function renameAccount(id, label) {
-  const accounts = await listAccounts()
+export async function renameAccount(env, id, label) {
+  const accounts = await listAccounts(env)
   const account = accounts.find((a) => a.id === id)
   if (!account) return null
   account.label = String(label).trim().slice(0, 40) || defaultLabel(account.email ?? '')
-  await saveAccounts(accounts)
+  await saveAccounts(env, accounts)
   return account
 }
 
-export async function disconnect(id) {
-  const accounts = await listAccounts()
+export async function disconnect(env, id) {
+  const accounts = await listAccounts(env)
   const remaining = accounts.filter((a) => a.id !== id)
   if (remaining.length === accounts.length) return false
-  await saveAccounts(remaining)
-  await deleteRecord(tokenKey(id))
+  await saveAccounts(env, remaining)
+  await deleteRecord(env, tokenKey(id))
   return true
 }
 
-export function authUrl(redirectUri, state) {
+export function authUrl(env, redirectUri, state) {
   const params = new URLSearchParams({
-    client_id: process.env.GOOGLE_CLIENT_ID,
+    client_id: env.GOOGLE_CLIENT_ID,
     redirect_uri: redirectUri,
     response_type: 'code',
     scope: SCOPES,
@@ -120,13 +120,13 @@ export function authUrl(redirectUri, state) {
   return `https://accounts.google.com/o/oauth2/v2/auth?${params}`
 }
 
-async function tokenRequest(body) {
+async function tokenRequest(env, body) {
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
-      client_id: process.env.GOOGLE_CLIENT_ID,
-      client_secret: process.env.GOOGLE_CLIENT_SECRET,
+      client_id: env.GOOGLE_CLIENT_ID,
+      client_secret: env.GOOGLE_CLIENT_SECRET,
       ...body,
     }),
   })
@@ -136,8 +136,8 @@ async function tokenRequest(body) {
 
 // Completes the OAuth dance and links whichever Google account signed in,
 // adding it to the account list (or refreshing it if already linked).
-export async function handleCallback(code, redirectUri) {
-  const tokens = await tokenRequest({
+export async function handleCallback(env, code, redirectUri) {
+  const tokens = await tokenRequest(env, {
     code,
     redirect_uri: redirectUri,
     grant_type: 'authorization_code',
@@ -147,14 +147,14 @@ export async function handleCallback(code, redirectUri) {
   }).then((r) => (r.ok ? r.json() : {}))
   if (!who.email) throw new Error('Google did not return an email address for this account')
 
-  const accounts = await listAccounts()
-  const id = accountId(who.email)
+  const accounts = await listAccounts(env)
+  const id = await accountId(who.email)
   const existing = accounts.find((a) => a.id === id)
   if (!existing && accounts.length >= MAX_ACCOUNTS) {
     throw new Error(`limit of ${MAX_ACCOUNTS} linked Google accounts reached`)
   }
 
-  await setRecord(tokenKey(id), {
+  await setRecord(env, tokenKey(id), {
     refresh_token: tokens.refresh_token,
     access_token: tokens.access_token,
     expires_at: Date.now() + (tokens.expires_in ?? 0) * 1000,
@@ -163,7 +163,7 @@ export async function handleCallback(code, redirectUri) {
 
   if (existing) {
     existing.email = who.email
-    await saveAccounts(accounts)
+    await saveAccounts(env, accounts)
     return { ...existing, isNew: false }
   }
 
@@ -176,15 +176,15 @@ export async function handleCallback(code, redirectUri) {
     color: PALETTE.find((c) => !used.has(c)) ?? PALETTE[accounts.length % PALETTE.length],
     addedAt: Date.now(),
   }
-  await saveAccounts([...accounts, account])
+  await saveAccounts(env, [...accounts, account])
   return { ...account, isNew: true }
 }
 
-async function accessTokenFor(id) {
-  const saved = await getRecord(tokenKey(id))
+async function accessTokenFor(env, id) {
+  const saved = await getRecord(env, tokenKey(id))
   if (!saved?.refresh_token) return null
   if (saved.access_token && saved.expires_at > Date.now() + 60000) return saved.access_token
-  const tokens = await tokenRequest({
+  const tokens = await tokenRequest(env, {
     refresh_token: saved.refresh_token,
     grant_type: 'refresh_token',
   })
@@ -193,13 +193,13 @@ async function accessTokenFor(id) {
     access_token: tokens.access_token,
     expires_at: Date.now() + (tokens.expires_in ?? 0) * 1000,
   }
-  await setRecord(tokenKey(id), next)
+  await setRecord(env, tokenKey(id), next)
   return next.access_token
 }
 
 // Authenticated GET against any Google REST API for the given linked account.
-export async function googleGet(id, url) {
-  const token = await accessTokenFor(id)
+export async function googleGet(env, id, url) {
+  const token = await accessTokenFor(env, id)
   if (!token) throw new Error(`${id} is not connected`)
   const res = await fetch(url, { headers: { authorization: `Bearer ${token}` } })
   if (!res.ok) throw new Error(`Google API ${res.status}: ${(await res.text()).slice(0, 200)}`)
