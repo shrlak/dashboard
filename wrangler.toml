@@ -1,0 +1,21 @@
+name = "personal-dashboard-api"
+main = "worker/index.js"
+compatibility_date = "2024-09-23"
+
+# One-time setup: `wrangler kv namespace create TOKENS`, then paste the id
+# it prints below. Local `wrangler dev` works without this (it uses a local
+# emulated namespace automatically) — the real id is only needed to deploy.
+[[kv_namespaces]]
+binding = "TOKENS"
+id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
+
+# Non-secret configuration. Secrets (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
+# DASHBOARD_PASSWORD, SESSION_SECRET) are set with `wrangler secret put NAME`
+# instead — see README. Uncomment and edit the ones you need; `vars` here are
+# visible to anyone who can read this repo, so nothing sensitive belongs here.
+[vars]
+ALLOWED_ORIGINS = "https://shrlak.github.io"
+# ICLOUD_ICS_URLS = ""
+# NEWS_FEEDS_KO = ""
+# NEWS_FEEDS_EN = ""
+# PUBLIC_URL = ""

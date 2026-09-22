@@ -2,11 +2,11 @@
 # gh-pages branch. One-time setup: repo Settings → Pages → Source:
 # "Deploy from a branch" → Branch: gh-pages / (root).
 #
-# Note: Pages only hosts the frontend. Point it at the hosted backend by
-# setting the API_BASE repository variable (Settings → Secrets and variables
-# → Actions → Variables) to the backend's URL, e.g.
-# https://your-dashboard.vercel.app. Without it the panels show sample data
-# until a backend URL is entered on the Connections tab.
+# Note: Pages only hosts the frontend. Point it at the deployed Cloudflare
+# Worker by setting the API_BASE repository variable (Settings → Secrets and
+# variables → Actions → Variables) to the Worker's URL, e.g.
+# https://personal-dashboard-api.<you>.workers.dev. Without it the panels
+# show sample data until a backend URL is entered on the Connections tab.
 name: Publish to gh-pages
 
 on:

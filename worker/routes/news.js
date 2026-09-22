@@ -1,8 +1,8 @@
-import { Router } from 'express'
+import { Hono } from 'hono'
 import { NEWS } from '../../src/data/mock.js'
-import { decodeEntities, relativeTime } from '../util.js'
+import { decodeEntities, relativeTime } from '../lib/util.js'
 
-export const newsRouter = Router()
+export const newsRoutes = new Hono()
 
 // Google News RSS needs no API key. Override per language with a
 // comma-separated list of RSS URLs in NEWS_FEEDS_KO / NEWS_FEEDS_EN.
@@ -15,10 +15,10 @@ const PER_FEED = 6
 const CACHE_MS = 5 * 60 * 1000
 let cache = { at: 0, payload: null }
 
-function feedsFor(lang) {
-  const env = process.env[`NEWS_FEEDS_${lang.toUpperCase()}`]
-  if (!env) return DEFAULT_FEEDS[lang]
-  return env.split(',').map((s) => s.trim()).filter(Boolean)
+function feedsFor(env, lang) {
+  const configured = env[`NEWS_FEEDS_${lang.toUpperCase()}`]
+  if (!configured) return DEFAULT_FEEDS[lang]
+  return configured.split(',').map((s) => s.trim()).filter(Boolean)
 }
 
 function tagText(block, tag) {
@@ -46,9 +46,9 @@ function parseRss(xml, lang) {
   })
 }
 
-async function fetchAll() {
+async function fetchAll(env) {
   const jobs = ['ko', 'en'].flatMap((lang) =>
-    feedsFor(lang).map(async (url) => {
+    feedsFor(env, lang).map(async (url) => {
       const res = await fetch(url, { headers: { 'user-agent': 'personal-dashboard' } })
       if (!res.ok) throw new Error(`RSS ${res.status} for ${url}`)
       return parseRss(await res.text(), lang).slice(0, PER_FEED)
@@ -74,15 +74,15 @@ async function fetchAll() {
   return { items, errors }
 }
 
-newsRouter.get('/', async (req, res) => {
+newsRoutes.get('/', async (c) => {
   if (cache.payload && Date.now() - cache.at < CACHE_MS) {
-    return res.json(cache.payload)
+    return c.json(cache.payload)
   }
-  const { items, errors } = await fetchAll()
+  const { items, errors } = await fetchAll(c.env)
   if (errors.length) console.error('News fetch errors:', errors)
   const payload = items.length
     ? { source: 'live', items, errors }
     : { source: 'sample', items: NEWS, errors }
   if (items.length) cache = { at: Date.now(), payload }
-  res.json(payload)
+  return c.json(payload)
 })
