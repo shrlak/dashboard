@@ -73,7 +73,9 @@ This prints the Worker's URL, e.g. `https://personal-dashboard-api.<you>.workers
 
 ### 5. Point GitHub Pages at the Worker
 
-- Repo **Settings → Pages → Source → GitHub Actions** (one-time).
+- Repo **Settings → Pages → Source → "Deploy from a branch" → Branch: `gh-pages` / `(root)`**
+  (one-time). The workflow publishes the built frontend to the `gh-pages` branch, so the
+  "GitHub Actions" source setting is *not* the right one here.
 - Repo **Settings → Secrets and variables → Actions → Variables → New repository variable**: `API_BASE` = your Worker's URL.
 - Push to `main` (or re-run the "Publish to gh-pages" workflow) — the frontend is now live at `https://<user>.github.io/<repo>/` and calling your Worker for live data.
 
