@@ -28,14 +28,36 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # Secrets aren't readable in `if:` directly, so map to env first and gate
+    # the steps on it. Until the Cloudflare credentials exist the job reports
+    # what's missing and passes, rather than failing every push on a repo that
+    # simply hasn't been set up yet.
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
     steps:
+      - name: Report missing credentials
+        if: ${{ env.CLOUDFLARE_API_TOKEN == '' }}
+        run: |
+          {
+            echo "### Worker not deployed"
+            echo ""
+            echo "\`CLOUDFLARE_API_TOKEN\` is not set, so this push did not deploy the Worker."
+            echo "Add it (and \`CLOUDFLARE_ACCOUNT_ID\`) under Settings → Secrets and variables →"
+            echo "Actions → Secrets, and set the KV namespace id in \`wrangler.toml\`."
+            echo "See the README's one-time setup section."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - uses: actions/checkout@v4
+        if: ${{ env.CLOUDFLARE_API_TOKEN != '' }}
       - uses: actions/setup-node@v4
+        if: ${{ env.CLOUDFLARE_API_TOKEN != '' }}
         with:
           node-version: 22
           cache: npm
       - run: npm ci
+        if: ${{ env.CLOUDFLARE_API_TOKEN != '' }}
       - uses: cloudflare/wrangler-action@v3
+        if: ${{ env.CLOUDFLARE_API_TOKEN != '' }}
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
